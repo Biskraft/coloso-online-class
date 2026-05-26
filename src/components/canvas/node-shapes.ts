@@ -32,36 +32,36 @@ export const NODE_STYLES: Record<NodeType, NodeStyle> = {
     label: '방',
     icon: '◯',
     rx: 70, ry: 45,
-    fill: '#7AA8C2',     // 부드러운 사이언 블루
+    fill: '#7AA8C2',
     stroke: OUTLINE,
-    strokeWidth: 2.6,
+    strokeWidth: 3.6,
     textColor: OUTLINE,
   },
   vista: {
     label: '전망',
     icon: '◇',
     rx: 80, ry: 50,
-    fill: '#E8C552',     // 크리미 노랑 (덜 형광)
+    fill: '#E8C552',
     stroke: OUTLINE,
-    strokeWidth: 2.6,
+    strokeWidth: 3.6,
     textColor: OUTLINE,
   },
   treasure: {
     label: '보물',
     icon: '✦',
     rx: 70, ry: 45,
-    fill: '#D9823A',     // 따뜻한 진주황 (덜 쨍)
+    fill: '#D9823A',
     stroke: OUTLINE,
-    strokeWidth: 2.4,
+    strokeWidth: 3.2,
     textColor: OUTLINE,
   },
   boss: {
     label: '보스',
     icon: '✚',
     rx: 90, ry: 60,
-    fill: '#CF5547',     // 벽돌 빨강 (캔디톤 회피)
+    fill: '#CF5547',
     stroke: OUTLINE,
-    strokeWidth: 3.0,
+    strokeWidth: 4.2,
     textColor: OUTLINE,
   },
   hub: {
@@ -70,16 +70,16 @@ export const NODE_STYLES: Record<NodeType, NodeStyle> = {
     rx: 80, ry: 50,
     fill: '#E8C552',
     stroke: OUTLINE,
-    strokeWidth: 2.6,
+    strokeWidth: 3.6,
     textColor: OUTLINE,
   },
   save: {
     label: '세이브',
     icon: '⚑',
     rx: 60, ry: 38,
-    fill: '#8AAE52',     // 올리브 그린 (네온 회피)
+    fill: '#8AAE52',
     stroke: OUTLINE,
-    strokeWidth: 2.4,
+    strokeWidth: 3.2,
     textColor: OUTLINE,
   },
 };

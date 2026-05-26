@@ -3,6 +3,7 @@ import { useProject } from '../../store/project';
 import { BubbleNode } from './BubbleNode';
 import { Edge } from './Edge';
 import { Minimap } from './Minimap';
+import { NODE_STYLES } from './node-shapes';
 import { usePanZoom, screenToWorld } from './usePanZoom';
 import { autoLayout } from '../../utils/layout-dagre';
 import type { NodeType } from '../../types';
@@ -15,8 +16,6 @@ interface DragState {
   startWorld?: { x: number; y: number };
   nodeStart?: { x: number; y: number };
   cursorWorld?: { x: number; y: number };
-  startSize?: number;
-  startDistance?: number;
 }
 
 export function SvgCanvas() {
@@ -27,6 +26,7 @@ export function SvgCanvas() {
   const selection = useProject((s) => s.selection);
   const moveNode = useProject((s) => s.moveNode);
   const resizeNode = useProject((s) => s.resizeNode);
+  const setNodeAspect = useProject((s) => s.setNodeAspect);
   const addEdge = useProject((s) => s.addEdge);
   const select = useProject((s) => s.select);
   const addNode = useProject((s) => s.addNode);
@@ -56,20 +56,9 @@ export function SvgCanvas() {
   }, [transform]);
 
   const onResizePointerDown = useCallback((e: React.PointerEvent, id: string) => {
-    if (!svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const sw = screenToWorld(transform, e.clientX - rect.left, e.clientY - rect.top);
-    const n = useProject.getState().project.nodes.find((x) => x.id === id);
-    if (!n) return;
-    const distance = Math.hypot(sw.x - n.x, sw.y - n.y);
-    setDrag({
-      kind: 'resize',
-      nodeId: id,
-      startSize: n.size ?? 1,
-      startDistance: Math.max(1, distance),
-    });
+    setDrag({ kind: 'resize', nodeId: id });
     (e.target as Element).setPointerCapture(e.pointerId);
-  }, [transform]);
+  }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (drag.kind === 'none' || !svgRef.current) return;
@@ -81,14 +70,26 @@ export function SvgCanvas() {
       moveNode(drag.nodeId, nx, ny);
     } else if (drag.kind === 'edge') {
       setDrag({ ...drag, cursorWorld: sw });
-    } else if (drag.kind === 'resize' && drag.nodeId && drag.startSize && drag.startDistance) {
+    } else if (drag.kind === 'resize' && drag.nodeId) {
+      // SE 핸들이 커서를 따라감 → 노드의 가로/세로를 독립적으로 자유 변형
       const n = useProject.getState().project.nodes.find((x) => x.id === drag.nodeId);
       if (!n) return;
-      const d = Math.hypot(sw.x - n.x, sw.y - n.y);
-      const newSize = drag.startSize * (d / drag.startDistance);
+      const base = NODE_STYLES[n.type];
+      // SE 핸들 = (rx*cos45 + 4, ry*sin45 + 4)에서 cursor (world) 가져옴
+      // local offset = cursor - node center
+      const dx = Math.abs(sw.x - n.x);
+      const dy = Math.abs(sw.y - n.y);
+      // 핸들 위치 = corner. rx = (dx - 4) / cos45
+      const SQRT2 = Math.SQRT2;
+      const newRx = Math.max(20, (dx - 4) * SQRT2);
+      const newRy = Math.max(15, (dy - 4) * SQRT2);
+      // size + aspect로 분해
+      const newSize = Math.sqrt((newRx * newRy) / (base.rx * base.ry));
+      const newAspect = (newRx * base.ry) / (newRy * base.rx);
       resizeNode(drag.nodeId, newSize);
+      setNodeAspect(drag.nodeId, newAspect);
     }
-  }, [drag, transform, moveNode, resizeNode]);
+  }, [drag, transform, moveNode, resizeNode, setNodeAspect]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     if (drag.kind === 'edge' && drag.edgeFrom) {

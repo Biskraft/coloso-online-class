@@ -21,7 +21,7 @@ export function PostitPad() {
     : postits;
 
   return (
-    <aside className="postit-pad edge-right">
+    <aside className={`postit-pad edge-right ${showTemplates ? 'is-templates-open' : ''}`}>
       <header className="pp-header">
         <div className="pp-title-row">
           <h3 className="pp-title">포스트잇</h3>

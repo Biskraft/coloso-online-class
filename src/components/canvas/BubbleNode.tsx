@@ -108,17 +108,6 @@ export function BubbleNode({
       >
         {s.label}
       </text>
-      {/* 출처 표시 */}
-      {node.promotedFrom && (
-        <text
-          x={rx - 8} y={-ry + 12}
-          textAnchor="end"
-          fontSize={9}
-          fill="var(--brick)"
-          fontFamily="var(--font-mono)"
-          pointerEvents="none"
-        >↩</text>
-      )}
       {/* 엣지 핸들 (호버/선택 시 우측) */}
       {(hover || selected) && (
         <g data-handle="out">

@@ -40,8 +40,10 @@ function ellipseBoundary(
 export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
   const style = EDGE_STYLE[edge.type];
 
-  // 엣지가 노드 *가장자리*에서 시작/끝나도록 계산
-  const { startX, startY, endX, endY, angle } = useMemo(() => {
+  // 선은 노드 *안쪽으로* 깊이 들어가서 절대 끊기지 않게.
+  // 노드 fill이 z-order 위에 덮어 자연스러운 끝 처리.
+  // 화살표는 노드 가장자리 살짝 바깥에 별도 위치.
+  const { startX, startY, endX, endY, arrowX, arrowY, angle } = useMemo(() => {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     const len = Math.hypot(dx, dy) || 1;
@@ -54,16 +56,20 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
     const fromEdge = ellipseBoundary(from.x, from.y, fr.rx, fr.ry, dx, dy);
     const toEdge = ellipseBoundary(to.x, to.y, tr.rx, tr.ry, -dx, -dy);
 
-    // 시각적 숨쉴 공간 — 노드와 4px 떨어뜨리기
-    const gap = 4;
+    // 선 끝점: 노드 *안쪽으로* 6px 들어감 → 노드 fill에 가려져 절대 안 끊김
+    const inset = 6;
+    // 화살표 끝점: 노드 가장자리에서 외곽으로 2px → 화살표가 노드에 묻히지 않음
+    const arrowOut = 2;
     return {
-      startX: fromEdge.x + ux * gap,
-      startY: fromEdge.y + uy * gap,
-      endX:   toEdge.x - ux * gap,
-      endY:   toEdge.y - uy * gap,
+      startX: fromEdge.x - ux * inset,
+      startY: fromEdge.y - uy * inset,
+      endX:   toEdge.x + ux * inset,
+      endY:   toEdge.y + uy * inset,
+      arrowX: toEdge.x - ux * arrowOut,
+      arrowY: toEdge.y - uy * arrowOut,
       angle:  Math.atan2(dy, dx) * 180 / Math.PI,
     };
-  }, [from.x, from.y, to.x, to.y, from.type, from.size, to.type, to.size]);
+  }, [from.x, from.y, to.x, to.y, from.type, from.size, from.aspect, to.type, to.size, to.aspect]);
 
   const paths = useMemo(() => {
     // 단일 패스 — 두께가 다양해서 2중 스트로크 불필요
@@ -76,8 +82,7 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
     });
   }, [startX, startY, endX, endY, edge.id, rough]);
 
-  // 화살표 — 엣지 두께에 비례, 단 너무 작거나 크지 않게 클램프
-  const arrowTip = { x: endX, y: endY };
+  // 화살표 — 엣지 두께에 비례, 너무 작거나 크지 않게 클램프
   const arrowSize = Math.max(7, Math.min(13, style.width * 2.4));
   const arrowPoints =
     `${-arrowSize},${-arrowSize * 0.55} ${arrowSize * 0.4},0 ${-arrowSize},${arrowSize * 0.55}`;
@@ -113,7 +118,7 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
         <polygon
           points={arrowPoints}
           fill={style.stroke}
-          transform={`translate(${arrowTip.x} ${arrowTip.y}) rotate(${angle})`}
+          transform={`translate(${arrowX} ${arrowY}) rotate(${angle})`}
         />
       )}
 

@@ -26,7 +26,7 @@ export function PostitCard({ postit }: { postit: Postit }) {
 
   return (
     <div
-      className={`postit postit--${postit.color} ${postit.promoted ? 'is-promoted' : ''}`}
+      className={`postit postit--${postit.color}`}
       style={{ transform: `rotate(${postit.rotation}deg)` }}
       draggable
       onDragStart={onDragStart}
@@ -40,7 +40,6 @@ export function PostitCard({ postit }: { postit: Postit }) {
           title="색상 변경"
           aria-label="색상 변경"
         />
-        {postit.promoted && <span className="postit-badge" title="노드로 승격됨">→ 노드</span>}
         <button
           className="postit-x"
           onClick={(e) => { e.stopPropagation(); removePostit(postit.id); }}
