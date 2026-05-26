@@ -75,7 +75,7 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
     // 단일 패스. rough 모드는 직선 평균을 따라가며 구불(휨 X, 떨림만)
     return roughLine(startX, startY, endX, endY, {
       seed: edge.id,
-      roughness: rough ? 2.4 : 0,
+      roughness: rough ? 4.8 : 0,
       bowing:    0,
       passes:    1,
     });

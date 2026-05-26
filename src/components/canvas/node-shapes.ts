@@ -114,7 +114,7 @@ export function nodePaths(o: NodeShapeOpts): string[] {
   if (o.rough) {
     return roughEllipse(o.cx, o.cy, rx, ry, {
       seed: o.seed,
-      roughness: 1.4,
+      roughness: 2.8,
       passes: 2,
     });
   }
