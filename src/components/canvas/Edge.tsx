@@ -72,12 +72,11 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
   }, [from.x, from.y, to.x, to.y, from.type, from.size, from.aspect, to.type, to.size, to.aspect]);
 
   const paths = useMemo(() => {
-    // 단일 패스 — 두께가 다양해서 2중 스트로크 불필요
-    // rough 모드: 강한 떨림 + 자연스러운 휨
+    // 단일 패스. rough 모드는 직선 평균을 따라가며 구불(휨 X, 떨림만)
     return roughLine(startX, startY, endX, endY, {
       seed: edge.id,
-      roughness: rough ? 2.2 : 0,
-      bowing:    rough ? 1.1 : 0.25,
+      roughness: rough ? 2.4 : 0,
+      bowing:    0,
       passes:    1,
     });
   }, [startX, startY, endX, endY, edge.id, rough]);

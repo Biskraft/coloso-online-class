@@ -135,7 +135,7 @@ function NodeInspector({ node }: { node: BubbleNode }) {
       </label>
 
       <label className="ins-field">
-        <span>아이콘 태그</span>
+        <span>키워드 태그 (노드 아래·MJ 프롬프트에 반영)</span>
         <div className="ins-chips ins-chips--small">
           {ICON_OPTIONS.map((k) => {
             const on = node.icons.includes(k);
@@ -296,17 +296,17 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
   const project = useProject((s) => s.project);
   const setMjMaster = useProject((s) => s.setMjMaster);
   const updateNode = useProject((s) => s.updateNode);
-  const [params, setParams] = useState(DEFAULT_MJ_PARAMS);
   const [loadingMaster, setLoadingMaster] = useState(false);
   const [loadingNode, setLoadingNode] = useState(false);
   const [aiNote, setAiNote] = useState<string | null>(null);
 
   const node = nodeId ? project.nodes.find((n) => n.id === nodeId) : undefined;
-  const masterPrompt = project.mjMasterPrompt ?? buildMasterMjPrompt(project, params);
-  const nodePrompt = node ? (node.mjPrompt ?? buildNodeMjPrompt(node, project, params)) : '';
+  // 파라미터는 항상 프롬프트 안에 통합되어 출력됨 (별도 입력 X)
+  const masterPrompt = project.mjMasterPrompt ?? buildMasterMjPrompt(project);
+  const nodePrompt = node ? (node.mjPrompt ?? buildNodeMjPrompt(node, project)) : '';
 
   const generateMasterOffline = () => {
-    setMjMaster(buildMasterMjPrompt(project, params));
+    setMjMaster(buildMasterMjPrompt(project));
     setAiNote('오프라인 템플릿으로 생성됨');
   };
 
@@ -316,7 +316,7 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
     try {
       const r = await geminiCall({
         system: SYSTEM_MJ_MASTER,
-        user: userMessageForMjMaster(project, params),
+        user: userMessageForMjMaster(project, DEFAULT_MJ_PARAMS),
         maxTokens: 400,
       });
       setMjMaster(r.text.trim());
@@ -324,7 +324,7 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
     } catch (e: any) {
       if (e instanceof NoKeyError) {
         setAiNote('AI 키 없음 — 오프라인 템플릿으로 대체');
-        setMjMaster(buildMasterMjPrompt(project, params));
+        setMjMaster(buildMasterMjPrompt(project));
       } else {
         setAiNote(`AI 실패: ${e.message ?? e}`);
       }
@@ -335,7 +335,7 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
 
   const generateNodeOffline = () => {
     if (!node) return;
-    updateNode(node.id, { mjPrompt: buildNodeMjPrompt(node, project, params) });
+    updateNode(node.id, { mjPrompt: buildNodeMjPrompt(node, project) });
     setAiNote('오프라인 템플릿으로 생성됨');
   };
 
@@ -346,7 +346,7 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
     try {
       const r = await geminiCall({
         system: SYSTEM_MJ_NODE,
-        user: userMessageForMjNode(project, node.id, params),
+        user: userMessageForMjNode(project, node.id, DEFAULT_MJ_PARAMS),
         preferModel: 'gemini-2.5-flash',
         maxTokens: 300,
       });
@@ -354,7 +354,7 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
       setAiNote(`AI 생성 (${r.modelUsed}${r.fallback ? ' · 폴백' : ''})`);
     } catch (e: any) {
       if (e instanceof NoKeyError) {
-        updateNode(node.id, { mjPrompt: buildNodeMjPrompt(node, project, params) });
+        updateNode(node.id, { mjPrompt: buildNodeMjPrompt(node, project) });
         setAiNote('AI 키 없음 — 오프라인 템플릿으로 대체');
       } else {
         setAiNote(`AI 실패: ${e.message ?? e}`);
@@ -372,14 +372,14 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
       try {
         const r = await geminiCall({
           system: SYSTEM_MJ_NODE,
-          user: userMessageForMjNode(project, n.id, params),
+          user: userMessageForMjNode(project, n.id, DEFAULT_MJ_PARAMS),
           preferModel: 'gemini-2.5-flash',
           maxTokens: 300,
         });
         updateNode(n.id, { mjPrompt: r.text.trim() });
         aiCount += 1;
       } catch {
-        updateNode(n.id, { mjPrompt: buildNodeMjPrompt(n, project, params) });
+        updateNode(n.id, { mjPrompt: buildNodeMjPrompt(n, project) });
         offCount += 1;
       }
     }
@@ -391,27 +391,17 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
 
   return (
     <div className="ins-mj">
-      <div className="ins-mj-params">
-        <label className="ins-field">
-          <span>파라미터 (직접 편집)</span>
-          <input
-            className="ins-mono"
-            value={params}
-            onChange={(e) => setParams(e.target.value)}
-          />
-        </label>
-      </div>
-
       <section className="ins-mj-section">
         <header className="ins-mj-head">
           <h4>마스터 프롬프트</h4>
-          <span className="caption">레벨 전체 무드보드</span>
+          <span className="caption">레벨 전체 무드보드 · 파라미터 포함</span>
         </header>
         <textarea
           className="ins-mj-textarea ins-mono"
-          rows={5}
-          readOnly
+          rows={6}
           value={masterPrompt}
+          onChange={(e) => setMjMaster(e.target.value)}
+          placeholder="Generate a master prompt..."
         />
         <div className="ins-mj-actions">
           <button onClick={generateMasterOffline}>오프라인 재생성</button>
@@ -425,14 +415,15 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
       <section className="ins-mj-section">
         <header className="ins-mj-head">
           <h4>노드 프롬프트</h4>
-          <span className="caption">{node ? node.name : '노드 선택 없음'}</span>
+          <span className="caption">{node ? `${node.name} · 파라미터 포함` : '노드 선택 없음'}</span>
         </header>
         <textarea
           className="ins-mj-textarea ins-mono"
-          rows={5}
-          readOnly
+          rows={6}
           value={nodePrompt}
+          onChange={(e) => node && updateNode(node.id, { mjPrompt: e.target.value })}
           placeholder="노드를 선택하면 표시됩니다."
+          disabled={!node}
         />
         <div className="ins-mj-actions">
           <button onClick={generateNodeOffline} disabled={!node}>오프라인 재생성</button>

@@ -60,17 +60,28 @@ export const SYSTEM_SEED_POSTITS = `${COMMON_RULES}
 export const SYSTEM_MJ_MASTER = `${COMMON_RULES}
 
 [과제: Midjourney 마스터 프롬프트]
-주어진 컨셉과 다이어그램 요약을 바탕으로 *영어로* 1개의 Midjourney 프롬프트를 생성합니다.
-규칙:
-- subject, environment, atmosphere, lighting, composition, style 순으로 키워드를 쉼표로 연결합니다.
-- 마지막에 파라미터를 그대로 붙입니다: "--ar 16:9 --v 8.1 --style raw --stylize 250 --chaos 8"
-- 추가 설명 없이 프롬프트 한 줄만 출력합니다.
+주어진 컨셉과 다이어그램 요약을 바탕으로 1개의 Midjourney 프롬프트를 생성합니다.
+
+**출력 언어 규칙 — 절대 위반 금지**:
+- 출력은 100% 영어(English)만 사용. 한국어·한자·일본어 문자가 단 한 글자라도 포함되면 실패.
+- 입력에 한국어 명사가 있어도 의미를 영어로 변환해 출력. 예: "사원" → "ancient temple", "협곡" → "canyon".
+- 고유명사도 영어 표기로 변환하거나 의미를 풀어 영어로.
+
+구조:
+- subject, environment, atmosphere, lighting, composition, style 순으로 영어 키워드를 쉼표로 연결.
+- 마지막에 파라미터를 그대로 붙임: "--ar 16:9 --v 8.1 --style raw --stylize 250 --chaos 8"
+- 프롬프트 한 줄만 출력. 코드펜스·설명·인사 금지.
 `;
 
 export const SYSTEM_MJ_NODE = `${COMMON_RULES}
 
 [과제: Midjourney 노드별 프롬프트]
-컨셉의 전체 스타일을 유지하면서, 주어진 한 노드(방)에 대한 *영어* Midjourney 프롬프트 한 줄을 생성합니다.
+컨셉의 전체 스타일을 유지하면서, 주어진 한 노드(방)에 대한 Midjourney 프롬프트 한 줄을 생성합니다.
+
+**출력 언어 규칙 — 절대 위반 금지**:
+- 출력은 100% 영어(English)만 사용. 한국어 문자가 단 한 글자라도 포함되면 실패.
+- 한국어 노드명·아이콘은 의미를 영어로 변환. 예: "보스 챔버" → "boss arena", "대시 능력 제단" → "dash ability altar".
+
 출력 규칙은 마스터와 동일. 프롬프트 한 줄만.
 `;
 

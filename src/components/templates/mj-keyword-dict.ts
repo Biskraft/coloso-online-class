@@ -76,44 +76,70 @@ const MOOD_KEYWORDS: Array<{ match: RegExp; keywords: string[] }> = [
 /* ── 기본 파라미터 (사용자가 편집 가능) ── */
 export const DEFAULT_MJ_PARAMS = '--ar 16:9 --v 8.1 --style raw --stylize 250 --chaos 8';
 
-/* ── 마스터 프롬프트 생성 ── */
+/* ── 한국어 입력 → 영어 fallback 키워드 ── */
+const KOREAN_RE = /[가-힯㄰-㆏ᄀ-ᇿ]/;
+const hasKorean = (s: string) => KOREAN_RE.test(s);
+
+/* 컨셉 의도/페이싱 → 영어 mood 변환 (간단 사전식) */
+const INTENT_KEYWORDS: Array<{ match: RegExp; keywords: string[] }> = [
+  { match: /능력|ability|power|skill/i,   keywords: ['ability acquisition moment', 'ritualistic discovery'] },
+  { match: /스텔스|stealth|잠입|infilt/i, keywords: ['stealthy infiltration', 'tense quiet atmosphere'] },
+  { match: /퍼즐|puzzle|수수께끼/i,        keywords: ['puzzle setting', 'intricate mechanisms'] },
+  { match: /전투|combat|battle|싸움/i,    keywords: ['combat arena energy', 'kinetic tension'] },
+  { match: /탐험|exploration|발견|discover/i, keywords: ['exploratory wonder', 'rewarding discovery'] },
+  { match: /생존|survival|위기/i,         keywords: ['survival pressure', 'scarce resources'] },
+  { match: /감정|narrative|이야기|drama/i, keywords: ['emotional atmosphere', 'narrative weight'] },
+  { match: /추격|chase|escape/i,          keywords: ['high-speed chase', 'urgent momentum'] },
+  { match: /보스|boss|클라이맥스|climax/i, keywords: ['climactic boss encounter', 'epic confrontation'] },
+];
+
+/* ── 마스터 프롬프트 생성 — 출력은 100% 영어 ── */
 export function buildMasterMjPrompt(p: Project, paramsOverride?: string): string {
   const { concept } = p;
-  const text = `${concept.theme} ${concept.intent} ${concept.pacing}`;
+  const text = `${concept.theme} ${concept.intent} ${concept.pacing} ${concept.coreMechanic}`;
   const themeKw = collectKw(text, THEME_KEYWORDS);
   const moodKw = collectKw(concept.pacing + ' ' + concept.intent, MOOD_KEYWORDS);
+  const intentKw = collectKw(text, INTENT_KEYWORDS);
 
-  const subject = concept.theme || 'a video game level concept';
-  const intent = concept.intent ? `evoking ${concept.intent.replace(/^플레이어가\s*/, '')}` : '';
+  // 한국어가 섞일 가능성을 차단 — theme 문자열은 사용하지 않고 키워드만 사용
+  const subject = themeKw.length > 0
+    ? themeKw[0]
+    : 'a video game level concept';
+  const themeRest = themeKw.slice(1).join(', ');
+
+  // theme이 영문이면 (사용자가 영어로 적었으면) 살릴 수 있게 — 그렇지 않으면 무시
+  const englishTheme = concept.theme && !hasKorean(concept.theme) ? concept.theme : '';
 
   const parts = [
-    subject,
-    themeKw.join(', '),
-    intent,
+    englishTheme || subject,
+    themeRest,
+    intentKw.join(', '),
     moodKw.join(', '),
-    'concept art for a video game level, painterly digital art, cinematic composition, rich material detail',
+    'concept art for a video game level, painterly digital illustration, cinematic composition, rich material detail, atmospheric depth',
   ].filter(Boolean);
 
   return `${parts.join(', ')} ${paramsOverride ?? DEFAULT_MJ_PARAMS}`.replace(/\s+/g, ' ').trim();
 }
 
-/* ── 노드별 프롬프트 ── */
+/* ── 노드별 프롬프트 — 출력은 100% 영어 ── */
 export function buildNodeMjPrompt(
   node: BubbleNode,
   p: Project,
   paramsOverride?: string,
 ): string {
   const { concept } = p;
-  const text = `${concept.theme} ${concept.intent}`;
+  const text = `${concept.theme} ${concept.intent} ${concept.coreMechanic}`;
   const themeKw = collectKw(text, THEME_KEYWORDS);
 
-  const subject = node.name || NODE_TYPE_DESC[node.type];
+  // 노드 이름이 영문이면 살리고, 한국어면 영어 타입 디스크립션만 사용
+  const englishName = node.name && !hasKorean(node.name) ? node.name : '';
   const typeDesc = NODE_TYPE_DESC[node.type];
+  const subject = englishName || typeDesc;
   const iconKws = node.icons.map((k) => ICON_TO_KW[k]).filter(Boolean);
 
   const parts = [
     subject,
-    typeDesc,
+    englishName ? typeDesc : '',  // 영문 이름 있으면 typeDesc도 부가 정보로
     iconKws.join(', '),
     themeKw.slice(0, 3).join(', '),
     'video game concept art, painterly digital illustration, cinematic lighting, atmospheric depth',

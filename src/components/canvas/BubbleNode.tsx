@@ -108,6 +108,19 @@ export function BubbleNode({
       >
         {s.label}
       </text>
+      {/* 아이콘 태그 — 노드 아래 작은 칩으로 시각화 */}
+      {node.icons.length > 0 && (
+        <foreignObject x={-rx - 20} y={ry + 6} width={rx * 2 + 40} height={28}>
+          <div className="bn-icon-tags">
+            {node.icons.slice(0, 6).map((k) => (
+              <span key={k} className="bn-icon-chip">{k}</span>
+            ))}
+            {node.icons.length > 6 && (
+              <span className="bn-icon-more">+{node.icons.length - 6}</span>
+            )}
+          </div>
+        </foreignObject>
+      )}
       {/* 엣지 핸들 (호버/선택 시 우측) */}
       {(hover || selected) && (
         <g data-handle="out">
