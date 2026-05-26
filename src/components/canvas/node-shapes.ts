@@ -27,11 +27,12 @@ export interface NodeStyle {
 const OUTLINE = '#1A1814';
 
 /* 채도 한 단계 낮춘 톤 — 종이 위에 인쇄된 느낌 (네온 X) */
+/* 기본 형태는 원 (rx === ry). 사용자가 aspect 슬라이더로 타원화 가능 */
 export const NODE_STYLES: Record<NodeType, NodeStyle> = {
   room: {
     label: '방',
     icon: '◯',
-    rx: 70, ry: 45,
+    rx: 56, ry: 56,
     fill: '#7AA8C2',
     stroke: OUTLINE,
     strokeWidth: 3.6,
@@ -40,8 +41,8 @@ export const NODE_STYLES: Record<NodeType, NodeStyle> = {
   vista: {
     label: '전망',
     icon: '◇',
-    rx: 80, ry: 50,
-    fill: '#A88BB8',     /* 라벤더 보라 — 풍경/예고의 신비로운 톤 */
+    rx: 62, ry: 62,
+    fill: '#A88BB8',
     stroke: OUTLINE,
     strokeWidth: 3.6,
     textColor: OUTLINE,
@@ -49,7 +50,7 @@ export const NODE_STYLES: Record<NodeType, NodeStyle> = {
   treasure: {
     label: '보물',
     icon: '✦',
-    rx: 70, ry: 45,
+    rx: 56, ry: 56,
     fill: '#D9823A',
     stroke: OUTLINE,
     strokeWidth: 3.2,
@@ -58,7 +59,7 @@ export const NODE_STYLES: Record<NodeType, NodeStyle> = {
   boss: {
     label: '보스',
     icon: '✚',
-    rx: 90, ry: 60,
+    rx: 74, ry: 74,
     fill: '#CF5547',
     stroke: OUTLINE,
     strokeWidth: 4.2,
@@ -67,7 +68,7 @@ export const NODE_STYLES: Record<NodeType, NodeStyle> = {
   hub: {
     label: '허브',
     icon: '⌬',
-    rx: 80, ry: 50,
+    rx: 62, ry: 62,
     fill: '#E8C552',
     stroke: OUTLINE,
     strokeWidth: 3.6,
@@ -76,7 +77,7 @@ export const NODE_STYLES: Record<NodeType, NodeStyle> = {
   save: {
     label: '세이브',
     icon: '⚑',
-    rx: 60, ry: 38,
+    rx: 48, ry: 48,
     fill: '#8AAE52',
     stroke: OUTLINE,
     strokeWidth: 3.2,
