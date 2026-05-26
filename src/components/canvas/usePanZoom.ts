@@ -19,10 +19,14 @@ export function usePanZoom(svgRef: React.RefObject<SVGSVGElement>) {
     const zb = zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.2, 3])
       .filter((event) => {
-        // 노드/엣지 위에서 시작된 드래그는 panZoom이 가로채지 않음
+        // 노드·엣지·데코 위에서 시작된 드래그는 panZoom이 가로채지 않음
         const target = event.target as HTMLElement | SVGElement;
-        if (target && (target.closest('[data-node]') || target.closest('[data-edge]') || target.closest('[data-handle]'))) {
-          // 휠은 줌 허용
+        if (target && (
+          target.closest('[data-node]') ||
+          target.closest('[data-edge]') ||
+          target.closest('[data-handle]') ||
+          target.closest('[data-decoration]')
+        )) {
           if (event.type === 'wheel') return true;
           return false;
         }
