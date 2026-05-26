@@ -60,15 +60,15 @@ function ArrowDeco({
       <line
         x1={x1} y1={y1} x2={x2} y2={y2}
         stroke="transparent" strokeWidth={Math.max(lineWidth + 16, arrowSize + 12)}
-        strokeLinecap="round"
+        strokeLinecap="butt"
         onPointerDown={onSelect}
       />
-      {/* 본선 — 화살촉 base까지만, 둥근 cap이 화살촉 안에 묻힘 */}
+      {/* 본선 — 각진 cap (butt). 화살촉 base 위치에서 평평하게 끝남 */}
       <line
         x1={x1} y1={y1} x2={lineEndX} y2={lineEndY}
         stroke={ARROW}
         strokeWidth={lineWidth}
-        strokeLinecap="round"
+        strokeLinecap="butt"
         pointerEvents="none"
       />
       {/* 화살촉 — 큰 vivid red, 아웃라인 없음 */}
