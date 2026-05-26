@@ -43,17 +43,19 @@ export function Edge({ edge, from, to, rough, selected, offset = 0, onSelect }: 
   const style = EDGE_STYLE[edge.type];
 
   // 선은 노드 *안쪽으로* 깊이 들어가서 절대 끊기지 않게.
-  // 같은 노드쌍 중복 엣지는 수직 평행 offset으로 띄움.
+  // 같은 노드쌍 중복 엣지: ID 사전순 기준 수직 벡터를 일관되게 사용 →
+  // A→B와 B→A가 같은 px,py를 공유하므로 offset 부호로 좌우 평행 분리.
   const { startX, startY, endX, endY, arrowX, arrowY, angle } = useMemo(() => {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     const len = Math.hypot(dx, dy) || 1;
     const ux = dx / len;
     const uy = dy / len;
-    // 수직 단위벡터 (offset 방향). 방향성 있는 엣지(from→to) 기준이므로
-    // A→B와 B→A는 같은 쌍이지만 dx 부호가 반대 → 자동으로 반대편으로 띄워짐
-    const px = -uy;
-    const py = ux;
+
+    // ID 사전순 기준 수직벡터 (방향 무관)
+    const sortedDir = from.id < to.id ? 1 : -1;
+    const px = -uy * sortedDir;
+    const py =  ux * sortedDir;
     const ox = px * offset;
     const oy = py * offset;
 
@@ -74,7 +76,7 @@ export function Edge({ edge, from, to, rough, selected, offset = 0, onSelect }: 
       arrowY: toEdge.y   - uy * arrowOut + oy,
       angle:  Math.atan2(dy, dx) * 180 / Math.PI,
     };
-  }, [from.x, from.y, to.x, to.y, from.type, from.size, from.aspect, to.type, to.size, to.aspect, offset]);
+  }, [from.x, from.y, to.x, to.y, from.id, to.id, from.type, from.size, from.aspect, to.type, to.size, to.aspect, offset]);
 
   const paths = useMemo(() => {
     // 단일 패스. rough 모드는 직선 평균을 따라가며 구불(휨 X, 떨림만)

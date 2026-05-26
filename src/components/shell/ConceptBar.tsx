@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useProject } from '../../store/project';
 import { downloadJSON, uploadJSON } from '../../store/persistence';
 import './ConceptBar.css';
@@ -15,6 +15,19 @@ export function ConceptBar() {
 
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // 메뉴 바깥 클릭 시 닫기 — onMouseLeave는 fixed 메뉴와 부모 사이 갭으로 오작동
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Element;
+      if (!t.closest('.cb-actions') && !t.closest('.cb-menu')) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
 
   const updatedLabel = formatRelative(updatedAt);
 
@@ -79,7 +92,7 @@ export function ConceptBar() {
           파일 ▾
         </button>
         {menuOpen && (
-          <div className="cb-menu" onMouseLeave={() => setMenuOpen(false)}>
+          <div className="cb-menu">
             <button onClick={() => { downloadJSON(project, `${name || 'level'}.json`); setMenuOpen(false); }}>
               JSON 내보내기
             </button>
