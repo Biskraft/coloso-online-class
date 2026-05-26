@@ -6,7 +6,7 @@ import { EDGE_STYLE } from '../canvas/Edge';
 import { UsageMeter } from '../ai/UsageMeter';
 import { AIPanel } from '../ai/AIPanel';
 import { ExportPanel } from '../export/ExportPanel';
-import { buildNodeMjPrompt, buildMasterMjPrompt, DEFAULT_MJ_PARAMS } from '../templates/mj-keyword-dict';
+import { buildNodeMjPrompt, buildMasterMjPrompt, DEFAULT_MJ_PARAMS, sanitizeEnglishPrompt } from '../templates/mj-keyword-dict';
 import { geminiCall, NoKeyError } from '../ai/gemini';
 import { SYSTEM_MJ_NODE, SYSTEM_MJ_MASTER, userMessageForMjNode, userMessageForMjMaster } from '../ai/prompts';
 import './Inspector.css';
@@ -319,7 +319,7 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
         user: userMessageForMjMaster(project, DEFAULT_MJ_PARAMS),
         maxTokens: 400,
       });
-      setMjMaster(r.text.trim());
+      setMjMaster(sanitizeEnglishPrompt(r.text));
       setAiNote(`AI 생성 (${r.modelUsed}${r.fallback ? ' · 폴백' : ''})`);
     } catch (e: any) {
       if (e instanceof NoKeyError) {
@@ -350,7 +350,7 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
         preferModel: 'gemini-2.5-flash',
         maxTokens: 300,
       });
-      updateNode(node.id, { mjPrompt: r.text.trim() });
+      updateNode(node.id, { mjPrompt: sanitizeEnglishPrompt(r.text) });
       setAiNote(`AI 생성 (${r.modelUsed}${r.fallback ? ' · 폴백' : ''})`);
     } catch (e: any) {
       if (e instanceof NoKeyError) {
@@ -376,7 +376,7 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
           preferModel: 'gemini-2.5-flash',
           maxTokens: 300,
         });
-        updateNode(n.id, { mjPrompt: r.text.trim() });
+        updateNode(n.id, { mjPrompt: sanitizeEnglishPrompt(r.text) });
         aiCount += 1;
       } catch {
         updateNode(n.id, { mjPrompt: buildNodeMjPrompt(n, project) });

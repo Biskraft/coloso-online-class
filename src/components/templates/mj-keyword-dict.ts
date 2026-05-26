@@ -80,6 +80,18 @@ export const DEFAULT_MJ_PARAMS = '--ar 16:9 --v 8.1 --style raw --stylize 250 --
 const KOREAN_RE = /[가-힯㄰-㆏ᄀ-ᇿ]/;
 const hasKorean = (s: string) => KOREAN_RE.test(s);
 
+/** 최종 출력 sanitize — 한글이 어떤 경로로든 섞이면 모두 제거 + 공백 정리 */
+export function sanitizeEnglishPrompt(s: string): string {
+  return s
+    .replace(/[가-힯㄰-㆏ᄀ-ᇿ]+/g, '')      // 한글 음절·자모·자판
+    .replace(/[一-龥]+/g, '')                 // 한자
+    .replace(/[ぁ-んァ-ヶー]+/g, '')           // 일본 가나
+    .replace(/,\s*,/g, ',')                   // 빈 쉼표 정리
+    .replace(/,\s*$/g, '')                    // 끝에 남은 쉼표
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /* 컨셉 의도/페이싱 → 영어 mood 변환 (간단 사전식) */
 const INTENT_KEYWORDS: Array<{ match: RegExp; keywords: string[] }> = [
   { match: /능력|ability|power|skill/i,   keywords: ['ability acquisition moment', 'ritualistic discovery'] },
@@ -118,7 +130,7 @@ export function buildMasterMjPrompt(p: Project, paramsOverride?: string): string
     'concept art for a video game level, painterly digital illustration, cinematic composition, rich material detail, atmospheric depth',
   ].filter(Boolean);
 
-  return `${parts.join(', ')} ${paramsOverride ?? DEFAULT_MJ_PARAMS}`.replace(/\s+/g, ' ').trim();
+  return sanitizeEnglishPrompt(`${parts.join(', ')} ${paramsOverride ?? DEFAULT_MJ_PARAMS}`);
 }
 
 /* ── 노드별 프롬프트 — 출력은 100% 영어 ── */
@@ -145,7 +157,7 @@ export function buildNodeMjPrompt(
     'video game concept art, painterly digital illustration, cinematic lighting, atmospheric depth',
   ].filter(Boolean);
 
-  return `${parts.join(', ')} ${paramsOverride ?? DEFAULT_MJ_PARAMS}`.replace(/\s+/g, ' ').trim();
+  return sanitizeEnglishPrompt(`${parts.join(', ')} ${paramsOverride ?? DEFAULT_MJ_PARAMS}`);
 }
 
 function collectKw(
