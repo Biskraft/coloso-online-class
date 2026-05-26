@@ -59,6 +59,8 @@ async function callOnce(
   if (opts.responseSchema) {
     body.generationConfig.responseMimeType = 'application/json';
     body.generationConfig.responseSchema = opts.responseSchema;
+    // JSON 모드는 temperature 낮춰서 schema 위반 줄임
+    body.generationConfig.temperature = 0.4;
   }
   const res = await fetch(url, {
     method: 'POST',

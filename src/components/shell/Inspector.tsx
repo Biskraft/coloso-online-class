@@ -78,6 +78,8 @@ function NodeInspector({ node }: { node: BubbleNode }) {
   const removeNode = useProject((s) => s.removeNode);
   const resizeNode = useProject((s) => s.resizeNode);
   const setNodeAspect = useProject((s) => s.setNodeAspect);
+  const bringNodeToFront = useProject((s) => s.bringNodeToFront);
+  const sendNodeToBack = useProject((s) => s.sendNodeToBack);
   const size = node.size ?? 1;
   const aspect = node.aspect ?? 1;
   const baseStyle = NODE_STYLES[node.type];
@@ -94,6 +96,18 @@ function NodeInspector({ node }: { node: BubbleNode }) {
       <label className="ins-field">
         <span>이름</span>
         <input value={node.name} onChange={(e) => updateNode(node.id, { name: e.target.value })} />
+      </label>
+
+      <label className="ins-field">
+        <span>레이어 순서</span>
+        <div className="ins-z-row">
+          <button onClick={() => sendNodeToBack(node.id)} className="ins-z-btn" title="다른 노드 뒤로">
+            ▽ 맨 뒤로
+          </button>
+          <button onClick={() => bringNodeToFront(node.id)} className="ins-z-btn" title="다른 노드 앞으로">
+            △ 맨 앞으로
+          </button>
+        </div>
       </label>
 
       <label className="ins-field">

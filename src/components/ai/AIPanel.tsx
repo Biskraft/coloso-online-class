@@ -46,7 +46,7 @@ export function AIPanel() {
           },
           required: ['theme', 'intent', 'coreMechanic', 'learningGoals', 'pacing'],
         },
-        maxTokens: 800,
+        maxTokens: 1200,
       });
       const c = extractJSON<Partial<Concept>>(r.text);
       if (c) {
@@ -72,14 +72,45 @@ export function AIPanel() {
       const r = await geminiCall({
         system: SYSTEM_CRITIQUE,
         user: userMessageForCritique(project),
-        maxTokens: 1200,
+        responseSchema: {
+          type: 'object',
+          properties: {
+            strengths:  { type: 'array', items: { type: 'string' } },
+            weaknesses: { type: 'array', items: { type: 'string' } },
+            risks:      { type: 'array', items: { type: 'string' } },
+            suggestions: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  principle: { type: 'string' },
+                  action:    { type: 'string' },
+                },
+                required: ['action'],
+              },
+            },
+          },
+        },
+        maxTokens: 2400,
       });
-      const c = extractJSON(r.text);
-      if (c) {
-        setCritique(c);
-        setNote(`비평 완료 (${r.modelUsed}${r.fallback ? ' · 폴백' : ''})`);
+      const c = extractJSON<any>(r.text);
+      if (c && typeof c === 'object') {
+        // 누락 필드 빈 배열로 보정
+        const norm = {
+          strengths:   Array.isArray(c.strengths)   ? c.strengths   : [],
+          weaknesses:  Array.isArray(c.weaknesses)  ? c.weaknesses  : [],
+          risks:       Array.isArray(c.risks)       ? c.risks       : [],
+          suggestions: Array.isArray(c.suggestions) ? c.suggestions : [],
+        };
+        const total = norm.strengths.length + norm.weaknesses.length + norm.risks.length + norm.suggestions.length;
+        if (total === 0) {
+          setNote('AI가 평가할 내용을 찾지 못함 — 컨셉을 더 구체적으로 채운 뒤 다시 시도');
+        } else {
+          setCritique(norm);
+          setNote(`비평 완료 (${r.modelUsed}${r.fallback ? ' · 폴백' : ''})`);
+        }
       } else {
-        setNote('응답을 JSON으로 해석하지 못함');
+        setNote('응답을 JSON으로 해석하지 못함 — 잠시 후 다시 시도');
       }
     } catch (e: any) {
       setNote(

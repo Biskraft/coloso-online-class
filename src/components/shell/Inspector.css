@@ -147,6 +147,27 @@
   font-family: var(--font-mono);
 }
 
+.ins-z-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.ins-z-btn {
+  padding: 6px;
+  font-size: 11px;
+  color: var(--ink-800);
+  background: var(--paper-50);
+  border: 1px solid rgba(26, 24, 20, 0.18);
+  border-radius: var(--r-sm);
+  transition: all var(--dur-fast) var(--ease-out);
+}
+
+.ins-z-btn:hover {
+  background: var(--paper-200);
+  border-color: var(--ink-700);
+}
+
 .ins-size-row {
   display: flex;
   align-items: center;

@@ -48,6 +48,8 @@ interface ProjectStore {
   moveNode: (id: string, x: number, y: number) => void;
   resizeNode: (id: string, size: number) => void;
   setNodeAspect: (id: string, aspect: number) => void;
+  bringNodeToFront: (id: string) => void;
+  sendNodeToBack: (id: string) => void;
   promotePostit: (postitId: string, x: number, y: number, type?: NodeType) => string;
 
   // 데코 요소 (자유 배치 화살표/타원/텍스트)
@@ -294,6 +296,20 @@ export const useProject = create<ProjectStore>()(
           nodes: p.nodes.map((n) => n.id === id ? { ...n, aspect: clamped } : n),
         }));
       },
+
+      bringNodeToFront: (id) => updateCurrent(set, (p) => {
+        const target = p.nodes.find((n) => n.id === id);
+        if (!target) return p;
+        const others = p.nodes.filter((n) => n.id !== id);
+        return { ...p, nodes: [...others, target] };
+      }),
+
+      sendNodeToBack: (id) => updateCurrent(set, (p) => {
+        const target = p.nodes.find((n) => n.id === id);
+        if (!target) return p;
+        const others = p.nodes.filter((n) => n.id !== id);
+        return { ...p, nodes: [target, ...others] };
+      }),
 
       promotePostit: (postitId, x, y, type = 'room') => {
         const st = get();
