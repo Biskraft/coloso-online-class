@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useProject } from '../../store/project';
 import { geminiCall, extractJSON, NoKeyError, TransientError } from './gemini';
 import {
-  SYSTEM_CONCEPT, SYSTEM_CRITIQUE, SYSTEM_SEED_POSTITS,
-  userMessageForConcept, userMessageForCritique, userMessageForSeedPostits,
+  SYSTEM_CONCEPT, SYSTEM_SEED_POSTITS,
+  userMessageForConcept, userMessageForSeedPostits,
 } from './prompts';
 import type { Concept, PostitColor } from '../../types';
 import './AIPanel.css';
@@ -17,9 +17,8 @@ export function AIPanel() {
   const updatePostit = useProject((s) => s.updatePostit);
 
   const [seedText, setSeedText] = useState('');
-  const [busy, setBusy] = useState<'concept' | 'critique' | 'seed' | null>(null);
+  const [busy, setBusy] = useState<'concept' | 'seed' | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [critique, setCritique] = useState<any>(null);
   const [keyInput, setKeyInput] = useState('');
 
   const hasKey = !!ai.apiKey;
@@ -54,63 +53,6 @@ export function AIPanel() {
         setNote(`컨셉 생성 완료 (${r.modelUsed}${r.fallback ? ' · 폴백' : ''})`);
       } else {
         setNote('응답을 JSON으로 해석하지 못함');
-      }
-    } catch (e: any) {
-      setNote(
-        e instanceof NoKeyError
-          ? '키를 먼저 등록하세요.'
-          : e instanceof TransientError
-          ? 'Gemini 모델이 일시적으로 혼잡합니다. 잠시 후 다시 시도해 주세요.'
-          : `실패: ${e.message ?? e}`
-      );
-    } finally { setBusy(null); }
-  };
-
-  const runCritique = async () => {
-    setBusy('critique'); setNote(null); setCritique(null);
-    try {
-      const r = await geminiCall({
-        system: SYSTEM_CRITIQUE,
-        user: userMessageForCritique(project),
-        responseSchema: {
-          type: 'object',
-          properties: {
-            strengths:  { type: 'array', items: { type: 'string' } },
-            weaknesses: { type: 'array', items: { type: 'string' } },
-            risks:      { type: 'array', items: { type: 'string' } },
-            suggestions: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  principle: { type: 'string' },
-                  action:    { type: 'string' },
-                },
-                required: ['action'],
-              },
-            },
-          },
-        },
-        maxTokens: 2400,
-      });
-      const c = extractJSON<any>(r.text);
-      if (c && typeof c === 'object') {
-        // 누락 필드 빈 배열로 보정
-        const norm = {
-          strengths:   Array.isArray(c.strengths)   ? c.strengths   : [],
-          weaknesses:  Array.isArray(c.weaknesses)  ? c.weaknesses  : [],
-          risks:       Array.isArray(c.risks)       ? c.risks       : [],
-          suggestions: Array.isArray(c.suggestions) ? c.suggestions : [],
-        };
-        const total = norm.strengths.length + norm.weaknesses.length + norm.risks.length + norm.suggestions.length;
-        if (total === 0) {
-          setNote('AI가 평가할 내용을 찾지 못함 — 컨셉을 더 구체적으로 채운 뒤 다시 시도');
-        } else {
-          setCritique(norm);
-          setNote(`비평 완료 (${r.modelUsed}${r.fallback ? ' · 폴백' : ''})`);
-        }
-      } else {
-        setNote('응답을 JSON으로 해석하지 못함 — 잠시 후 다시 시도');
       }
     } catch (e: any) {
       setNote(
@@ -237,20 +179,7 @@ export function AIPanel() {
       </section>
 
       <section className="ai-section">
-        <h4>② 비평 받기</h4>
-        <p className="ai-section-hint">현재 컨셉을 평가합니다.</p>
-        <button
-          onClick={runCritique}
-          disabled={busy !== null || !project.concept.theme}
-          className="ai-action"
-        >
-          {busy === 'critique' ? '평가 중…' : '비평 (Pro)'}
-        </button>
-        {critique && <CritiqueResult c={critique} />}
-      </section>
-
-      <section className="ai-section">
-        <h4>③ 포스트잇 시드</h4>
+        <h4>② 포스트잇 시드</h4>
         <p className="ai-section-hint">컨셉으로부터 8~12장의 포스트잇 후보를 만들어 패드에 추가합니다.</p>
         <button
           onClick={seedPostits}
@@ -266,39 +195,3 @@ export function AIPanel() {
   );
 }
 
-function CritiqueResult({ c }: { c: any }) {
-  return (
-    <div className="ai-critique">
-      {c.strengths?.length > 0 && (
-        <div className="ai-critique-block">
-          <span className="caption ai-critique-label ai-critique-label--ok">강점</span>
-          <ul>{c.strengths.map((s: string, i: number) => <li key={i}>{s}</li>)}</ul>
-        </div>
-      )}
-      {c.weaknesses?.length > 0 && (
-        <div className="ai-critique-block">
-          <span className="caption ai-critique-label ai-critique-label--warn">약점</span>
-          <ul>{c.weaknesses.map((s: string, i: number) => <li key={i}>{s}</li>)}</ul>
-        </div>
-      )}
-      {c.risks?.length > 0 && (
-        <div className="ai-critique-block">
-          <span className="caption ai-critique-label ai-critique-label--risk">위험</span>
-          <ul>{c.risks.map((s: string, i: number) => <li key={i}>{s}</li>)}</ul>
-        </div>
-      )}
-      {c.suggestions?.length > 0 && (
-        <div className="ai-critique-block">
-          <span className="caption ai-critique-label">제안</span>
-          <ul>
-            {c.suggestions.map((s: any, i: number) => (
-              <li key={i}>
-                <strong>{s.principle}:</strong> {s.action}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
