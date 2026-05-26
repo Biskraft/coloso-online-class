@@ -24,10 +24,15 @@ export function BubbleNode({
   const select = useProject((s) => s.select);
   const [hover, setHover] = useState(false);
 
-  // 핸들 위치 — 스케일된 반지름 기준
-  const outHandle = { x: rx + 6, y: 0 };
+  // 엣지 연결 핸들 — 4방향 (N/E/S/W) 모두 동일 기능
+  const edgeHandles = [
+    { id: 'e', x:  rx + 6,  y: 0,        ax: -2.5, ay: -2, bx: 1.5, by: 0, cx: -2.5, cy: 2 },
+    { id: 'w', x: -rx - 6,  y: 0,        ax:  2.5, ay: -2, bx: -1.5, by: 0, cx:  2.5, cy: 2 },
+    { id: 'n', x:  0,       y: -ry - 6,  ax: -2,   ay:  2.5, bx: 0, by: -1.5, cx: 2, cy: 2.5 },
+    { id: 's', x:  0,       y:  ry + 6,  ax: -2,   ay: -2.5, bx: 0, by: 1.5, cx: 2, cy: -2.5 },
+  ];
   // 리사이즈 핸들: SE 방향 (타원 위 점)
-  const seAngle = Math.PI * 0.25; // 45°
+  const seAngle = Math.PI * 0.25;
   const resizeHandle = {
     x: rx * Math.cos(seAngle) + 4,
     y: ry * Math.sin(seAngle) + 4,
@@ -121,11 +126,11 @@ export function BubbleNode({
           </div>
         </foreignObject>
       )}
-      {/* 엣지 핸들 (호버/선택 시 우측) */}
-      {(hover || selected) && (
-        <g data-handle="out">
+      {/* 엣지 연결 핸들 — 4방향 (호버/선택 시 표시) */}
+      {(hover || selected) && edgeHandles.map((h) => (
+        <g key={h.id} data-handle="out">
           <circle
-            cx={outHandle.x} cy={outHandle.y}
+            cx={h.x} cy={h.y}
             r="6"
             fill="var(--paper-50)"
             stroke="var(--brick)"
@@ -136,9 +141,9 @@ export function BubbleNode({
               onHandlePointerDown(e, node.id);
             }}
           />
-          {/* 작은 화살표 힌트 */}
+          {/* 방향 화살표 힌트 */}
           <path
-            d={`M ${outHandle.x - 2.5} ${outHandle.y - 2} L ${outHandle.x + 1.5} ${outHandle.y} L ${outHandle.x - 2.5} ${outHandle.y + 2}`}
+            d={`M ${h.x + h.ax} ${h.y + h.ay} L ${h.x + h.bx} ${h.y + h.by} L ${h.x + h.cx} ${h.y + h.cy}`}
             fill="none"
             stroke="var(--brick)"
             strokeWidth="1.2"
@@ -147,7 +152,7 @@ export function BubbleNode({
             pointerEvents="none"
           />
         </g>
-      )}
+      ))}
       {/* 리사이즈 핸들 (호버/선택 시 SE 모서리) */}
       {(hover || selected) && (
         <g data-handle="resize">
