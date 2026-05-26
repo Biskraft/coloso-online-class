@@ -59,11 +59,13 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
   }, [from.x, from.y, to.x, to.y, from.type, from.size, to.type, to.size]);
 
   const paths = useMemo(() => {
+    // 선은 항상 단일 패스 — 2중 스트로크는 산만함
+    // rough 모드에서도 자연스러운 휨·떨림만 단일 패스로 표현
     return roughLine(startX, startY, endX, endY, {
       seed: edge.id,
-      roughness: rough ? 1.3 : 0,
-      bowing:    rough ? 0.7 : 0.25,
-      passes:    rough ? 2   : 1,
+      roughness: rough ? 0.9 : 0,
+      bowing:    rough ? 0.55 : 0.20,
+      passes:    1,
     });
   }, [startX, startY, endX, endY, edge.id, rough]);
 
@@ -93,11 +95,7 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
           d={d}
           fill="none"
           stroke={style.stroke}
-          strokeWidth={
-            rough
-              ? (selected ? style.width + 0.6 : style.width * 0.85)
-              : (selected ? style.width + 1.2 : style.width)
-          }
+          strokeWidth={selected ? style.width + 1.2 : style.width}
           strokeDasharray={style.dash}
           strokeLinecap="round"
           strokeLinejoin="round"

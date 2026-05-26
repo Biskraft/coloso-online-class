@@ -26,12 +26,13 @@ export interface NodeStyle {
 
 const OUTLINE = '#1A1814';
 
+/* 채도 한 단계 낮춘 톤 — 종이 위에 인쇄된 느낌 (네온 X) */
 export const NODE_STYLES: Record<NodeType, NodeStyle> = {
   room: {
     label: '방',
     icon: '◯',
     rx: 70, ry: 45,
-    fill: '#5BA9D5',
+    fill: '#7AA8C2',     // 부드러운 사이언 블루
     stroke: OUTLINE,
     strokeWidth: 2.6,
     textColor: OUTLINE,
@@ -40,7 +41,7 @@ export const NODE_STYLES: Record<NodeType, NodeStyle> = {
     label: '전망',
     icon: '◇',
     rx: 80, ry: 50,
-    fill: '#F9CF3D',
+    fill: '#E8C552',     // 크리미 노랑 (덜 형광)
     stroke: OUTLINE,
     strokeWidth: 2.6,
     textColor: OUTLINE,
@@ -49,7 +50,7 @@ export const NODE_STYLES: Record<NodeType, NodeStyle> = {
     label: '보물',
     icon: '✦',
     rx: 70, ry: 45,
-    fill: '#F0832E',
+    fill: '#D9823A',     // 따뜻한 진주황 (덜 쨍)
     stroke: OUTLINE,
     strokeWidth: 2.4,
     textColor: OUTLINE,
@@ -58,7 +59,7 @@ export const NODE_STYLES: Record<NodeType, NodeStyle> = {
     label: '보스',
     icon: '✚',
     rx: 90, ry: 60,
-    fill: '#E84B36',
+    fill: '#CF5547',     // 벽돌 빨강 (캔디톤 회피)
     stroke: OUTLINE,
     strokeWidth: 3.0,
     textColor: OUTLINE,
@@ -67,7 +68,7 @@ export const NODE_STYLES: Record<NodeType, NodeStyle> = {
     label: '허브',
     icon: '⌬',
     rx: 80, ry: 50,
-    fill: '#F9CF3D',
+    fill: '#E8C552',
     stroke: OUTLINE,
     strokeWidth: 2.6,
     textColor: OUTLINE,
@@ -76,7 +77,7 @@ export const NODE_STYLES: Record<NodeType, NodeStyle> = {
     label: '세이브',
     icon: '⚑',
     rx: 60, ry: 38,
-    fill: '#7BA63F',
+    fill: '#8AAE52',     // 올리브 그린 (네온 회피)
     stroke: OUTLINE,
     strokeWidth: 2.4,
     textColor: OUTLINE,
