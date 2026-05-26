@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useProject } from '../../store/project';
-import { geminiCall, extractJSON, NoKeyError } from './gemini';
+import { geminiCall, extractJSON, NoKeyError, TransientError } from './gemini';
 import {
   SYSTEM_CONCEPT, SYSTEM_CRITIQUE, SYSTEM_SEED_POSTITS,
   userMessageForConcept, userMessageForCritique, userMessageForSeedPostits,
@@ -56,7 +56,13 @@ export function AIPanel() {
         setNote('응답을 JSON으로 해석하지 못함');
       }
     } catch (e: any) {
-      setNote(e instanceof NoKeyError ? '키를 먼저 등록하세요.' : `실패: ${e.message ?? e}`);
+      setNote(
+        e instanceof NoKeyError
+          ? '키를 먼저 등록하세요.'
+          : e instanceof TransientError
+          ? 'Gemini 모델이 일시적으로 혼잡합니다. 잠시 후 다시 시도해 주세요.'
+          : `실패: ${e.message ?? e}`
+      );
     } finally { setBusy(null); }
   };
 
@@ -76,7 +82,13 @@ export function AIPanel() {
         setNote('응답을 JSON으로 해석하지 못함');
       }
     } catch (e: any) {
-      setNote(e instanceof NoKeyError ? '키를 먼저 등록하세요.' : `실패: ${e.message ?? e}`);
+      setNote(
+        e instanceof NoKeyError
+          ? '키를 먼저 등록하세요.'
+          : e instanceof TransientError
+          ? 'Gemini 모델이 일시적으로 혼잡합니다. 잠시 후 다시 시도해 주세요.'
+          : `실패: ${e.message ?? e}`
+      );
     } finally { setBusy(null); }
   };
 
@@ -96,7 +108,13 @@ export function AIPanel() {
       });
       setNote(`포스트잇 ${items.length}장 추가 (${r.modelUsed}${r.fallback ? ' · 폴백' : ''})`);
     } catch (e: any) {
-      setNote(e instanceof NoKeyError ? '키를 먼저 등록하세요.' : `실패: ${e.message ?? e}`);
+      setNote(
+        e instanceof NoKeyError
+          ? '키를 먼저 등록하세요.'
+          : e instanceof TransientError
+          ? 'Gemini 모델이 일시적으로 혼잡합니다. 잠시 후 다시 시도해 주세요.'
+          : `실패: ${e.message ?? e}`
+      );
     } finally { setBusy(null); }
   };
 

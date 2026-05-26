@@ -31,6 +31,13 @@ export class QuotaError extends Error {
   }
 }
 
+/** 503/502/504 — 일시적 모델 혼잡. 재시도/폴백 대상 */
+export class TransientError extends Error {
+  constructor(public model: GeminiModel, public status: number) {
+    super(`Transient ${status} on ${model}`);
+  }
+}
+
 export class NoKeyError extends Error {
   constructor() { super('Gemini API key가 설정되지 않았습니다.'); }
 }
@@ -61,6 +68,9 @@ async function callOnce(
   });
   if (!res.ok) {
     if (res.status === 429) throw new QuotaError(model);
+    if (res.status === 503 || res.status === 502 || res.status === 504) {
+      throw new TransientError(model, res.status);
+    }
     const t = await res.text();
     throw new Error(`Gemini ${model} ${res.status}: ${t.slice(0, 200)}`);
   }
@@ -72,9 +82,32 @@ async function callOnce(
   return text;
 }
 
+/** 일시적 에러는 지수 백오프 재시도 (max 2회) */
+async function callWithRetry(
+  model: GeminiModel, apiKey: string, opts: CallOpts,
+  maxRetries = 2,
+): Promise<string> {
+  let lastErr: unknown;
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      return await callOnce(model, apiKey, opts);
+    } catch (e) {
+      lastErr = e;
+      if (e instanceof TransientError && i < maxRetries) {
+        const wait = 500 * Math.pow(2, i); // 500, 1000, 2000
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastErr ?? new Error('재시도 실패');
+}
+
 /**
  * 자동 폴백 호출
- * preferPro=true 이면 Pro 시도 → 한도/에러 시 Flash 시도
+ * preferPro=true이면 Pro 시도 → 한도/혼잡 시 Flash 시도
+ * Flash 우선 모드는 그 반대
  */
 export async function geminiCall(
   opts: CallOpts & { preferModel?: GeminiModel },
@@ -91,13 +124,13 @@ export async function geminiCall(
   for (let i = 0; i < order.length; i++) {
     const m = order[i];
     try {
-      const text = await callOnce(m, key, opts);
+      const text = await callWithRetry(m, key, opts);
       st.bumpUsage(m === 'gemini-2.5-pro' ? 'pro' : 'flash');
       return { text, modelUsed: m, fallback: i > 0 };
     } catch (e) {
       lastErr = e;
-      if (e instanceof QuotaError) {
-        // 다음 모델 시도
+      // 한도 또는 일시적 혼잡 → 다음 모델로 폴백
+      if (e instanceof QuotaError || e instanceof TransientError) {
         continue;
       }
       throw e;

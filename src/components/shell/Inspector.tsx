@@ -7,7 +7,7 @@ import { UsageMeter } from '../ai/UsageMeter';
 import { AIPanel } from '../ai/AIPanel';
 import { ExportPanel } from '../export/ExportPanel';
 import { buildNodeMjPrompt, buildMasterMjPrompt, DEFAULT_MJ_PARAMS, sanitizeEnglishPrompt } from '../templates/mj-keyword-dict';
-import { geminiCall, NoKeyError } from '../ai/gemini';
+import { geminiCall, NoKeyError, TransientError } from '../ai/gemini';
 import { SYSTEM_MJ_NODE, SYSTEM_MJ_MASTER, userMessageForMjNode, userMessageForMjMaster } from '../ai/prompts';
 import './Inspector.css';
 
@@ -360,6 +360,9 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
       if (e instanceof NoKeyError) {
         setAiNote('AI 키 없음 — 오프라인 템플릿으로 대체');
         setMjMaster(buildMasterMjPrompt(project));
+      } else if (e instanceof TransientError) {
+        setAiNote('Gemini 모델이 일시적으로 혼잡합니다. 오프라인 템플릿으로 대체 — 잠시 후 AI 재시도 권장.');
+        setMjMaster(buildMasterMjPrompt(project));
       } else {
         setAiNote(`AI 실패: ${e.message ?? e}`);
       }
@@ -391,6 +394,9 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
       if (e instanceof NoKeyError) {
         updateNode(node.id, { mjPrompt: buildNodeMjPrompt(node, project) });
         setAiNote('AI 키 없음 — 오프라인 템플릿으로 대체');
+      } else if (e instanceof TransientError) {
+        updateNode(node.id, { mjPrompt: buildNodeMjPrompt(node, project) });
+        setAiNote('Gemini 모델이 일시적으로 혼잡합니다. 오프라인 템플릿으로 대체 — 잠시 후 AI 재시도 권장.');
       } else {
         setAiNote(`AI 실패: ${e.message ?? e}`);
       }
