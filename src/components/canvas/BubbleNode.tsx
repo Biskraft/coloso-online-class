@@ -20,7 +20,6 @@ export function BubbleNode({
   const size = node.size ?? 1;
   const { rx, ry } = nodeRadii(node.type, size);
   const paths = nodePaths({ cx: 0, cy: 0, type: node.type, size, rough, seed: node.id });
-  const shadowPath = nodePaths({ cx: 0, cy: 0, type: node.type, size, rough: false, seed: node.id })[0];
   const select = useProject((s) => s.select);
   const [hover, setHover] = useState(false);
 
@@ -46,16 +45,9 @@ export function BubbleNode({
       onPointerLeave={() => setHover(false)}
       className="bn"
     >
-      {/* 그림자 — 항상 깨끗한 ellipse */}
-      <path
-        d={shadowPath}
-        fill="rgba(58, 50, 38, 0.10)"
-        stroke="none"
-        transform="translate(2, 3)"
-      />
-      {/* Fill 레이어 — 항상 깨끗한 ellipse (rough path 닫힘 chord 아티팩트 회피) */}
+      {/* Fill 레이어 — 솔리드 채도색 ellipse */}
       <ellipse cx="0" cy="0" rx={rx} ry={ry} fill={s.fill} stroke="none" className="bn-fill" />
-      {/* Stroke 레이어 — clean 1패스, rough 2패스 겹침. fill 없음 */}
+      {/* Stroke 레이어 — 굵은 검정 외곽선. rough 모드는 2패스 겹침(둘 다 솔리드) */}
       {paths.map((d, idx) => (
         <path
           key={idx}
@@ -64,26 +56,24 @@ export function BubbleNode({
           stroke={s.stroke}
           strokeWidth={
             rough
-              ? (selected ? s.strokeWidth + 0.4 : s.strokeWidth * 0.9)
-              : (selected ? s.strokeWidth + 1.5 : s.strokeWidth)
+              ? (selected ? s.strokeWidth + 0.6 : s.strokeWidth * 0.92)
+              : (selected ? s.strokeWidth + 1.4 : s.strokeWidth)
           }
-          strokeOpacity={rough ? (idx === 0 ? 0.90 : 0.65) : 1}
           strokeLinejoin="round"
           strokeLinecap="round"
           className={idx === 0 ? 'bn-shape' : 'bn-shape-overlay'}
         />
       ))}
-      {/* 선택 표시 */}
+      {/* 선택 표시 — 외곽 점선 (솔리드 색) */}
       {selected && (
         <ellipse
           cx="0" cy="0"
-          rx={rx + 8}
-          ry={ry + 6}
+          rx={rx + 9}
+          ry={ry + 7}
           fill="none"
-          stroke="var(--brick)"
-          strokeWidth="1.2"
-          strokeDasharray="4 3"
-          opacity="0.7"
+          stroke="#1A1814"
+          strokeWidth="1.4"
+          strokeDasharray="5 4"
           pointerEvents="none"
         />
       )}

@@ -12,60 +12,74 @@ export interface NodeStyle {
   textColor: string;
 }
 
+/* ─────────────────────────────────────────────────────────
+   레퍼런스 톤 매칭 — 솔리드 채도색, 굵은 검정 외곽선
+   - 알파(rgba/opacity) 미사용
+   - Boss Keys 표기 규약 색 매핑:
+     room  → BLUE   (Standard Zone)
+     vista → YELLOW (Major Hub — 큰 랜드마크 공간)
+     treasure → ORANGE (Optional/Secret Area)
+     boss  → RED    (Dangerous Zone)
+     hub   → YELLOW (Major Hub)
+     save  → GREEN  (Safe Zone)
+   ───────────────────────────────────────────────────────── */
+
+const OUTLINE = '#1A1814';
+
 export const NODE_STYLES: Record<NodeType, NodeStyle> = {
   room: {
     label: '방',
     icon: '◯',
     rx: 70, ry: 45,
-    fill: 'var(--paper-50)',
-    stroke: 'var(--ink-800)',
-    strokeWidth: 1.6,
-    textColor: 'var(--ink-900)',
+    fill: '#5BA9D5',
+    stroke: OUTLINE,
+    strokeWidth: 2.6,
+    textColor: OUTLINE,
   },
   vista: {
     label: '전망',
     icon: '◇',
     rx: 80, ry: 50,
-    fill: 'rgba(154, 179, 136, 0.30)',
-    stroke: 'var(--moss)',
-    strokeWidth: 1.6,
-    textColor: 'var(--ink-900)',
+    fill: '#F9CF3D',
+    stroke: OUTLINE,
+    strokeWidth: 2.6,
+    textColor: OUTLINE,
   },
   treasure: {
     label: '보물',
     icon: '✦',
     rx: 70, ry: 45,
-    fill: 'rgba(222, 197, 145, 0.40)',
-    stroke: 'var(--ochre-deep)',
-    strokeWidth: 1.6,
-    textColor: 'var(--ink-900)',
+    fill: '#F0832E',
+    stroke: OUTLINE,
+    strokeWidth: 2.4,
+    textColor: OUTLINE,
   },
   boss: {
     label: '보스',
     icon: '✚',
     rx: 90, ry: 60,
-    fill: 'rgba(216, 149, 147, 0.45)',
-    stroke: 'var(--brick-deep)',
-    strokeWidth: 2.2,
-    textColor: 'var(--ink-900)',
+    fill: '#E84B36',
+    stroke: OUTLINE,
+    strokeWidth: 3.0,
+    textColor: OUTLINE,
   },
   hub: {
     label: '허브',
     icon: '⌬',
     rx: 80, ry: 50,
-    fill: 'rgba(191, 211, 230, 0.42)',
-    stroke: 'var(--blueprint)',
-    strokeWidth: 1.6,
-    textColor: 'var(--ink-900)',
+    fill: '#F9CF3D',
+    stroke: OUTLINE,
+    strokeWidth: 2.6,
+    textColor: OUTLINE,
   },
   save: {
     label: '세이브',
     icon: '⚑',
     rx: 60, ry: 38,
-    fill: 'rgba(184, 218, 208, 0.50)',
-    stroke: 'var(--moss)',
-    strokeWidth: 1.4,
-    textColor: 'var(--ink-900)',
+    fill: '#7BA63F',
+    stroke: OUTLINE,
+    strokeWidth: 2.4,
+    textColor: OUTLINE,
   },
 };
 

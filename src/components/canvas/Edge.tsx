@@ -13,10 +13,10 @@ interface Props {
 }
 
 export const EDGE_STYLE: Record<EdgeType, { stroke: string; dash?: string; width: number; label: string }> = {
-  open:    { stroke: 'var(--ink-700)',     width: 1.6,                          label: '통로' },
-  locked:  { stroke: 'var(--ochre-deep)',  width: 2.0, dash: '6 4',             label: '잠금' },
-  oneway:  { stroke: 'var(--blueprint)',   width: 1.8,                          label: '일방' },
-  ability: { stroke: 'var(--brick)',       width: 2.0, dash: '2 4',             label: '능력' },
+  open:    { stroke: '#1A1814',  width: 3.0,                  label: '통로' },
+  locked:  { stroke: '#8F7740',  width: 2.6, dash: '7 4',     label: '잠금' },
+  oneway:  { stroke: '#5A5247',  width: 2.4,                  label: '일방' },
+  ability: { stroke: '#8A3D3A',  width: 2.6, dash: '3 4',     label: '능력' },
 };
 
 /** 타원 경계 위의 점 계산 — 중심에서 방향 (dirX, dirY)로 나가는 광선의 타원 교점 */
@@ -95,11 +95,8 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
           stroke={style.stroke}
           strokeWidth={
             rough
-              ? (selected ? style.width + 0.5 : style.width * 0.82)
+              ? (selected ? style.width + 0.6 : style.width * 0.85)
               : (selected ? style.width + 1.2 : style.width)
-          }
-          strokeOpacity={
-            rough ? (idx === 0 ? 0.88 : 0.62) : (selected ? 1 : 0.92)
           }
           strokeDasharray={style.dash}
           strokeLinecap="round"
