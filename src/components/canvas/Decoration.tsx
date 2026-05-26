@@ -38,11 +38,20 @@ function ArrowDeco({
 }) {
   const x1 = dec.x, y1 = dec.y;
   const x2 = dec.x2 ?? dec.x + 140, y2 = dec.y2 ?? dec.y;
-  const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
   // vivid red 아이콘 톤 — 외곽선 없음, 굵은 선, 큰 화살촉
   const ARROW = '#E5202B';
   const lineWidth = selected ? 28 : 24;
   const arrowSize = 44;
+  // 화살촉이 본선 끝의 둥근 cap을 완전히 덮도록 짧게 자른 선 끝점
+  const TIP_RETRACT = arrowSize * 0.85;
+  const lineEndX = x2 - ux * TIP_RETRACT;
+  const lineEndY = y2 - uy * TIP_RETRACT;
   const points = `${-arrowSize},${-arrowSize * 0.7} ${arrowSize * 0.5},0 ${-arrowSize},${arrowSize * 0.7}`;
 
   return (
@@ -53,10 +62,9 @@ function ArrowDeco({
         stroke="transparent" strokeWidth={lineWidth + 12}
         onPointerDown={onSelect}
       />
-      {/* 선택 표시는 양 끝 핸들로 — halo 없음 */}
-      {/* 본선 — 굵은 vivid red, 아웃라인 없음 */}
+      {/* 본선 — 화살촉 base까지만, 둥근 cap이 화살촉 안에 묻힘 */}
       <line
-        x1={x1} y1={y1} x2={x2} y2={y2}
+        x1={x1} y1={y1} x2={lineEndX} y2={lineEndY}
         stroke={ARROW}
         strokeWidth={lineWidth}
         strokeLinecap="round"
