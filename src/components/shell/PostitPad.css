@@ -124,7 +124,8 @@
 }
 
 .pp-templates-btn {
-  font-size: var(--fs-sm);
+  font-family: var(--font-hand);
+  font-size: 17px;
   color: var(--ink-700);
   padding: 4px 0;
 }
