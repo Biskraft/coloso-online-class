@@ -7,7 +7,25 @@
 
 import { useProject } from '../../store/project';
 
-export type GeminiModel = 'gemini-2.5-pro' | 'gemini-2.5-flash';
+export type GeminiModel =
+  | 'gemini-2.5-pro'
+  | 'gemini-2.5-flash'
+  | 'gemini-2.5-flash-lite'
+  | 'gemini-2.0-flash';
+
+/* 한 키로 시도할 모델 체인. 위에서 아래로 폴백. */
+const MODEL_CHAIN_QUALITY: GeminiModel[] = [
+  'gemini-2.5-pro',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash',
+];
+const MODEL_CHAIN_SPEED: GeminiModel[] = [
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-2.5-pro',
+];
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -118,15 +136,17 @@ export async function geminiCall(
   const key = st.project.ai.apiKey;
   if (!key) throw new NoKeyError();
 
+  // 속도 우선(Flash 계열 먼저) vs 품질 우선(Pro 먼저)
   const order: GeminiModel[] = opts.preferModel === 'gemini-2.5-flash'
-    ? ['gemini-2.5-flash', 'gemini-2.5-pro']
-    : ['gemini-2.5-pro', 'gemini-2.5-flash'];
+    ? MODEL_CHAIN_SPEED
+    : MODEL_CHAIN_QUALITY;
 
   let lastErr: unknown;
   for (let i = 0; i < order.length; i++) {
     const m = order[i];
     try {
       const text = await callWithRetry(m, key, opts);
+      // 사용량 집계: Pro 또는 그 외(Flash 계열로 묶음)
       st.bumpUsage(m === 'gemini-2.5-pro' ? 'pro' : 'flash');
       return { text, modelUsed: m, fallback: i > 0 };
     } catch (e) {
