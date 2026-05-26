@@ -4,7 +4,7 @@ import type { NodeType, EdgeType } from '../../types';
 import './Legend.css';
 
 const NODE_ORDER: NodeType[] = ['room', 'vista', 'treasure', 'boss', 'hub', 'save'];
-const EDGE_ORDER: EdgeType[] = ['open', 'locked', 'oneway', 'ability'];
+const EDGE_ORDER: EdgeType[] = ['open', 'locked', 'oneway', 'ability', 'vista'];
 
 const NODE_HELP: Record<NodeType, string> = {
   room:     '일반 방. 전투·통과·환경 인터랙션.',
@@ -19,6 +19,7 @@ const EDGE_HELP: Record<EdgeType, string> = {
   locked:  '잠금문. 키를 획득해야 통과.',
   oneway:  '일방통행. 반대로 돌아갈 수 없음.',
   ability: '능력 게이트. 특정 능력 보유 시만 통과.',
+  vista:   '전망. 다른 공간이 시각적으로 보이지만 이동 불가.',
 };
 
 export function Legend({ onClose }: { onClose: () => void }) {

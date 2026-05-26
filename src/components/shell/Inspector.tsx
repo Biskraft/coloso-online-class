@@ -12,7 +12,7 @@ import { SYSTEM_MJ_NODE, SYSTEM_MJ_MASTER, userMessageForMjNode, userMessageForM
 import './Inspector.css';
 
 const NODE_TYPES: NodeType[] = ['room', 'vista', 'treasure', 'boss', 'hub', 'save'];
-const EDGE_TYPES: EdgeType[] = ['open', 'locked', 'oneway', 'ability'];
+const EDGE_TYPES: EdgeType[] = ['open', 'locked', 'oneway', 'ability', 'vista'];
 
 const ICON_OPTIONS = [
   'chasm', 'treasure_visible', 'dash_required', 'key', 'lock',

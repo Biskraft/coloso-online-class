@@ -26,6 +26,7 @@ export const EDGE_STYLE: Record<EdgeType, { stroke: string; dash?: string; width
   locked:  { stroke: '#8F7740',  width: 2.8, dash: '8 5',     label: '잠금' },
   oneway:  { stroke: '#6B6760',  width: 1.8,                  label: '일방' },
   ability: { stroke: '#8A3D3A',  width: 2.2, dash: '3 4',     label: '능력' },
+  vista:   { stroke: '#6B4F87',  width: 1.6, dash: '2 6',     label: '전망' },
 };
 
 /** 타원 경계 위의 점 계산 — 중심에서 방향 (dirX, dirY)로 나가는 광선의 타원 교점 */

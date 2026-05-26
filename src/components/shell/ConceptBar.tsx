@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useProject } from '../../store/project';
 import { downloadJSON, uploadJSON } from '../../store/persistence';
 import './ConceptBar.css';
@@ -16,17 +17,19 @@ export function ConceptBar() {
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // 메뉴 바깥 클릭 시 닫기 — onMouseLeave는 fixed 메뉴와 부모 사이 갭으로 오작동
+  // 메뉴 바깥 클릭 시 닫기. 다음 tick부터 청취 (열기 클릭과 동시 트리거 방지)
   useEffect(() => {
     if (!menuOpen) return;
     const handler = (e: MouseEvent) => {
       const t = e.target as Element;
-      if (!t.closest('.cb-actions') && !t.closest('.cb-menu')) {
-        setMenuOpen(false);
-      }
+      if (t && (t.closest('.cb-actions') || t.closest('[data-cb-menu]'))) return;
+      setMenuOpen(false);
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    const id = window.setTimeout(() => document.addEventListener('click', handler), 0);
+    return () => {
+      window.clearTimeout(id);
+      document.removeEventListener('click', handler);
+    };
   }, [menuOpen]);
 
   const updatedLabel = formatRelative(updatedAt);
@@ -91,26 +94,27 @@ export function ConceptBar() {
         <button className="cb-btn" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen}>
           파일 ▾
         </button>
-        {menuOpen && (
-          <div className="cb-menu">
+        {menuOpen && createPortal(
+          <div className="cb-menu" data-cb-menu>
             <button onClick={() => { downloadJSON(project, `${name || 'level'}.json`); setMenuOpen(false); }}>
               JSON 내보내기
             </button>
             <button onClick={async () => {
+              setMenuOpen(false);
               const p = await uploadJSON();
               if (p) loadFromJSON(p);
-              setMenuOpen(false);
             }}>
               JSON 불러오기
             </button>
             <hr />
             <button onClick={() => {
-              if (confirm('현재 작업을 모두 비우시겠습니까?')) reset();
               setMenuOpen(false);
+              if (confirm('현재 작업을 모두 비우시겠습니까?')) reset();
             }} className="cb-menu-danger">
               새 프로젝트
             </button>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </header>

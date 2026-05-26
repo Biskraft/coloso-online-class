@@ -12,7 +12,8 @@ export type EdgeType =
   | 'open'      // 열린 통로
   | 'locked'    // 키 잠금
   | 'oneway'    // 일방통행
-  | 'ability';  // 능력 게이트
+  | 'ability'   // 능력 게이트
+  | 'vista';    // 전망 — 보이지만 닿을 수 없음
 
 export type PostitColor = 'yellow' | 'pink' | 'mint' | 'blue' | 'lilac';
 
