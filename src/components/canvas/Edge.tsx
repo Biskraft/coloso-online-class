@@ -151,15 +151,23 @@ export function Edge({ edge, from, to, rough, selected, offset = 0, onSelect }: 
 }
 
 function EdgeLabel({ x, y, text, color }: { x: number; y: number; text: string; color: string }) {
-  const padding = 4;
-  const charW = 6.5;
-  const w = text.length * charW + padding * 2;
+  // 한글은 라틴 대비 약 2배 폭 — 너비 어림 추정
+  const koreanCount = (text.match(/[가-힯ㄱ-ㅎㅏ-ㅣ]/g) || []).length;
+  const latinCount = text.length - koreanCount;
+  const PADDING = 28; // 양쪽 14px씩 시각적 여백
+  const estimated = Math.max(46, koreanCount * 15 + latinCount * 8 + PADDING);
+  const HEIGHT = 26;
   return (
-    <g transform={`translate(${x - w / 2} ${y - 9})`}>
-      <rect width={w} height={18} rx="3" ry="3" fill="var(--paper-50)" stroke={color} strokeWidth="1" />
-      <text x={w / 2} y={12} textAnchor="middle" fontSize="11" fontFamily="var(--font-mono)" fill="var(--ink-800)">
-        {text}
-      </text>
-    </g>
+    <foreignObject
+      x={x - estimated / 2}
+      y={y - HEIGHT / 2}
+      width={estimated}
+      height={HEIGHT}
+      style={{ overflow: 'visible' }}
+    >
+      <div className="edge-label" style={{ borderColor: color, color }}>
+        <span>{text}</span>
+      </div>
+    </foreignObject>
   );
 }

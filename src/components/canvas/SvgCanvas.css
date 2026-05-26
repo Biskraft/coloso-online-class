@@ -49,6 +49,31 @@
   stroke: var(--paper-50);
 }
 
+/* 엣지 라벨 — 한글/영문 모두 예쁘게 */
+.edge-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  padding: 2px 14px;
+  background: var(--paper-50);
+  border: 1.6px solid currentColor;
+  border-radius: 4px;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.edge-label > span {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-900);
+  letter-spacing: -0.005em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .bn-icon-tags {
   display: flex;
   flex-wrap: wrap;
