@@ -80,7 +80,25 @@ export interface CanvasView {
   showMinimap: boolean;
 }
 
+export type DecorationKind = 'arrow' | 'ellipse' | 'text';
+
+export interface Decoration {
+  id: string;
+  kind: DecorationKind;
+  x: number;
+  y: number;
+  // arrow 전용 — 끝점
+  x2?: number;
+  y2?: number;
+  // ellipse·text 전용 — 박스 크기
+  width?: number;
+  height?: number;
+  // text 전용
+  text?: string;
+}
+
 export interface Project {
+  id: string;
   version: 1;
   name: string;
   updatedAt: number;
@@ -88,6 +106,7 @@ export interface Project {
   postits: Postit[];
   nodes: BubbleNode[];
   edges: BubbleEdge[];
+  decorations: Decoration[];
   mjMasterPrompt?: string;
   view: CanvasView;
   ai: AISettings;
@@ -101,7 +120,8 @@ export const emptyConcept = (): Concept => ({
   pacing: '',
 });
 
-export const emptyProject = (): Project => ({
+export const emptyProject = (id: string): Project => ({
+  id,
   version: 1,
   name: '새 레벨',
   updatedAt: Date.now(),
@@ -109,6 +129,7 @@ export const emptyProject = (): Project => ({
   postits: [],
   nodes: [],
   edges: [],
+  decorations: [],
   view: {
     edgeStyle: 'clean',
     autoLayout: true,

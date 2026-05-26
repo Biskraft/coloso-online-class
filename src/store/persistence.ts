@@ -1,30 +1,9 @@
 import type { Project } from '../types';
 
-const KEY = 'bubble-atelier::project';
-
-export function loadProject(): Project | null {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Project;
-    if (parsed.version !== 1) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-export function saveProject(p: Project): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(p));
-  } catch (e) {
-    console.warn('localStorage 저장 실패', e);
-  }
-}
-
-export function clearProject(): void {
-  localStorage.removeItem(KEY);
-}
+/* ─────────────────────────────────────────────────────────
+   영구 저장 없음 — 모든 프로젝트는 메모리에서만.
+   JSON export/import만 영구화 수단.
+   ───────────────────────────────────────────────────────── */
 
 export function downloadJSON(p: Project, filename = 'level-design.json') {
   const blob = new Blob([JSON.stringify(p, null, 2)], { type: 'application/json' });

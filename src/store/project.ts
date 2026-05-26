@@ -1,18 +1,31 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type {
-  Project, Postit, BubbleNode, BubbleEdge, Concept, PostitColor,
-  NodeType, EdgeType, CanvasView,
+  Project, Postit, BubbleNode, BubbleEdge, Decoration, DecorationKind,
+  Concept, PostitColor, NodeType, EdgeType, CanvasView,
 } from '../types';
 import { emptyProject } from '../types';
 import { uid, today } from '../utils/id';
-import { loadProject, saveProject } from './persistence';
+
+/* ─────────────────────────────────────────────────────────
+   멀티 프로젝트 워크스페이스 — 모든 상태는 메모리만.
+   영구 저장 없음. JSON export/import로만 보존.
+   project = projects[currentId 매칭] (state.project로 동기 유지)
+   ───────────────────────────────────────────────────────── */
 
 interface ProjectStore {
-  project: Project;
-  selection: { kind: 'none' } | { kind: 'node'; id: string } | { kind: 'edge'; id: string } | { kind: 'postit'; id: string };
+  projects: Project[];
+  currentId: string;
+  project: Project;   // 현재 활성 프로젝트와 동기화된 참조
+  selection: { kind: 'none' } | { kind: 'node'; id: string } | { kind: 'edge'; id: string } | { kind: 'postit'; id: string } | { kind: 'decoration'; id: string };
 
-  // 프로젝트
+  // 워크스페이스
+  newProject: (name?: string) => string;
+  switchProject: (id: string) => void;
+  closeProject: (id: string) => void;
+  importProject: (p: Project) => string;
+
+  // 현재 프로젝트
   setName: (name: string) => void;
   loadFromJSON: (p: Project) => void;
   reset: () => void;
@@ -35,6 +48,12 @@ interface ProjectStore {
   setNodeAspect: (id: string, aspect: number) => void;
   promotePostit: (postitId: string, x: number, y: number, type?: NodeType) => string;
 
+  // 데코 요소 (자유 배치 화살표/타원/텍스트)
+  addDecoration: (kind: DecorationKind, x: number, y: number) => string;
+  updateDecoration: (id: string, patch: Partial<Decoration>) => void;
+  removeDecoration: (id: string) => void;
+  moveDecoration: (id: string, x: number, y: number) => void;
+
   // 엣지
   addEdge: (from: string, to: string, type?: EdgeType) => string | null;
   updateEdge: (id: string, patch: Partial<BubbleEdge>) => void;
@@ -55,97 +74,130 @@ interface ProjectStore {
   applyAutoLayoutPositions: (positions: Record<string, { x: number; y: number }>) => void;
 }
 
-const SAVE_DEBOUNCE = 400;
-let saveTimer: number | undefined;
+const newId = () => uid('prj');
 
-const queueSave = (p: Project) => {
-  if (saveTimer) window.clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(() => saveProject(p), SAVE_DEBOUNCE);
+/** 현재 프로젝트를 mutator로 교체하면서 projects 배열과 project 동기화 */
+const updateCurrent = (
+  set: (fn: (s: ProjectStore) => Partial<ProjectStore>) => void,
+  mutator: (p: Project) => Project,
+) => {
+  set((s) => {
+    const idx = s.projects.findIndex((p) => p.id === s.currentId);
+    if (idx < 0) return {};
+    const updated = { ...mutator(s.projects[idx]), updatedAt: Date.now() };
+    const projects = [...s.projects];
+    projects[idx] = updated;
+    return { projects, project: updated };
+  });
 };
-
-const touch = (p: Project): Project => ({ ...p, updatedAt: Date.now() });
 
 export const useProject = create<ProjectStore>()(
   subscribeWithSelector((set, get) => {
-    const init = loadProject() ?? emptyProject();
-    // AI 사용량 일일 리셋
-    if (init.ai.usage.lastResetDay !== today()) {
-      init.ai.usage = { proUsedToday: 0, flashUsedToday: 0, lastResetDay: today() };
-    }
-
+    const first = emptyProject(newId());
     return {
-      project: init,
+      projects: [first],
+      currentId: first.id,
+      project: first,
       selection: { kind: 'none' },
 
-      setName: (name) =>
+      // ── 워크스페이스 ──
+      newProject: (name = '새 레벨') => {
+        const np = { ...emptyProject(newId()), name };
+        set((s) => ({
+          projects: [...s.projects, np],
+          currentId: np.id,
+          project: np,
+          selection: { kind: 'none' },
+        }));
+        return np.id;
+      },
+
+      switchProject: (id) => {
         set((s) => {
-          const p = touch({ ...s.project, name });
-          queueSave(p);
-          return { project: p };
-        }),
+          const target = s.projects.find((p) => p.id === id);
+          if (!target) return {};
+          return { currentId: id, project: target, selection: { kind: 'none' } };
+        });
+      },
+
+      closeProject: (id) => {
+        set((s) => {
+          const remaining = s.projects.filter((p) => p.id !== id);
+          if (remaining.length === 0) {
+            // 모두 닫으면 새 빈 프로젝트 자동 생성
+            const fresh = emptyProject(newId());
+            return {
+              projects: [fresh],
+              currentId: fresh.id,
+              project: fresh,
+              selection: { kind: 'none' },
+            };
+          }
+          let nextId = s.currentId;
+          let nextProject = s.project;
+          if (s.currentId === id) {
+            nextProject = remaining[0];
+            nextId = nextProject.id;
+          }
+          return {
+            projects: remaining,
+            currentId: nextId,
+            project: nextProject,
+            selection: { kind: 'none' },
+          };
+        });
+      },
+
+      importProject: (p) => {
+        // 새 id 부여 (기존 id 충돌 방지)
+        const imported: Project = { ...p, id: newId() };
+        set((s) => ({
+          projects: [...s.projects, imported],
+          currentId: imported.id,
+          project: imported,
+          selection: { kind: 'none' },
+        }));
+        return imported.id;
+      },
+
+      // ── 현재 프로젝트 액션 ──
+      setName: (name) => updateCurrent(set, (p) => ({ ...p, name })),
 
       loadFromJSON: (p) => {
-        const np = touch(p);
-        saveProject(np);
-        set({ project: np, selection: { kind: 'none' } });
+        // 현재 프로젝트를 통째로 교체 (id는 현재 것 유지)
+        updateCurrent(set, (cur) => ({ ...p, id: cur.id }));
+        set({ selection: { kind: 'none' } });
       },
 
       reset: () => {
-        const p = emptyProject();
-        saveProject(p);
-        set({ project: p, selection: { kind: 'none' } });
+        updateCurrent(set, (cur) => ({ ...emptyProject(cur.id) }));
+        set({ selection: { kind: 'none' } });
       },
 
-      setConcept: (patch) =>
-        set((s) => {
-          const p = touch({ ...s.project, concept: { ...s.project.concept, ...patch } });
-          queueSave(p);
-          return { project: p };
-        }),
+      setConcept: (patch) => updateCurrent(set, (p) => ({ ...p, concept: { ...p.concept, ...patch } })),
 
       addPostit: (text = '', color = 'yellow') => {
         const id = uid('pst');
-        const rotation = (Math.random() * 6) - 3; // -3 ~ 3
-        const postit: Postit = {
-          id, x: 0, y: 0, rotation, color, text, tags: [],
-          createdAt: Date.now(),
-        };
-        set((s) => {
-          const p = touch({ ...s.project, postits: [postit, ...s.project.postits] });
-          queueSave(p);
-          return { project: p };
-        });
+        const rotation = (Math.random() * 6) - 3;
+        const postit: Postit = { id, x: 0, y: 0, rotation, color, text, tags: [], createdAt: Date.now() };
+        updateCurrent(set, (p) => ({ ...p, postits: [postit, ...p.postits] }));
         return id;
       },
 
-      updatePostit: (id, patch) =>
-        set((s) => {
-          const postits = s.project.postits.map((x) => x.id === id ? { ...x, ...patch } : x);
-          const p = touch({ ...s.project, postits });
-          queueSave(p);
-          return { project: p };
-        }),
+      updatePostit: (id, patch) => updateCurrent(set, (p) => ({
+        ...p,
+        postits: p.postits.map((x) => x.id === id ? { ...x, ...patch } : x),
+      })),
 
-      removePostit: (id) =>
-        set((s) => {
-          const p = touch({
-            ...s.project,
-            postits: s.project.postits.filter((x) => x.id !== id),
-          });
-          queueSave(p);
-          return { project: p };
-        }),
+      removePostit: (id) => updateCurrent(set, (p) => ({
+        ...p,
+        postits: p.postits.filter((x) => x.id !== id),
+      })),
 
-      movePostit: (id, x, y) => {
-        set((s) => {
-          const postits = s.project.postits.map((p) =>
-            p.id === id ? { ...p, x, y } : p
-          );
-          const p = touch({ ...s.project, postits });
-          queueSave(p);
-          return { project: p };
-        });
-      },
+      movePostit: (id, x, y) => updateCurrent(set, (p) => ({
+        ...p,
+        postits: p.postits.map((x2) => x2.id === id ? { ...x2, x, y } : x2),
+      })),
 
       addNode: (n) => {
         const id = uid('nd');
@@ -159,59 +211,47 @@ export const useProject = create<ProjectStore>()(
           y: n.y,
           promotedFrom: n.promotedFrom,
         };
-        set((s) => {
-          const p = touch({ ...s.project, nodes: [...s.project.nodes, node] });
-          queueSave(p);
-          return { project: p, selection: { kind: 'node', id } };
-        });
+        updateCurrent(set, (p) => ({ ...p, nodes: [...p.nodes, node] }));
+        set({ selection: { kind: 'node', id } });
         return id;
       },
 
-      updateNode: (id, patch) =>
-        set((s) => {
-          const nodes = s.project.nodes.map((x) => x.id === id ? { ...x, ...patch } : x);
-          const p = touch({ ...s.project, nodes });
-          queueSave(p);
-          return { project: p };
-        }),
+      updateNode: (id, patch) => updateCurrent(set, (p) => ({
+        ...p,
+        nodes: p.nodes.map((x) => x.id === id ? { ...x, ...patch } : x),
+      })),
 
-      removeNode: (id) =>
-        set((s) => {
-          const nodes = s.project.nodes.filter((x) => x.id !== id);
-          const edges = s.project.edges.filter((e) => e.from !== id && e.to !== id);
-          const p = touch({ ...s.project, nodes, edges });
-          queueSave(p);
-          return {
-            project: p,
-            selection: s.selection.kind === 'node' && s.selection.id === id ? { kind: 'none' } : s.selection,
-          };
-        }),
+      removeNode: (id) => {
+        updateCurrent(set, (p) => ({
+          ...p,
+          nodes: p.nodes.filter((x) => x.id !== id),
+          edges: p.edges.filter((e) => e.from !== id && e.to !== id),
+        }));
+        set((s) => ({
+          selection: s.selection.kind === 'node' && s.selection.id === id ? { kind: 'none' } : s.selection,
+        }));
+      },
 
-      moveNode: (id, x, y) =>
-        set((s) => {
-          const nodes = s.project.nodes.map((n) => n.id === id ? { ...n, x, y } : n);
-          const p = touch({ ...s.project, nodes });
-          queueSave(p);
-          return { project: p };
-        }),
+      moveNode: (id, x, y) => updateCurrent(set, (p) => ({
+        ...p,
+        nodes: p.nodes.map((n) => n.id === id ? { ...n, x, y } : n),
+      })),
 
-      resizeNode: (id, size) =>
-        set((s) => {
-          const clamped = Math.max(0.5, Math.min(3.0, size));
-          const nodes = s.project.nodes.map((n) => n.id === id ? { ...n, size: clamped } : n);
-          const p = touch({ ...s.project, nodes });
-          queueSave(p);
-          return { project: p };
-        }),
+      resizeNode: (id, size) => {
+        const clamped = Math.max(0.5, Math.min(3.0, size));
+        updateCurrent(set, (p) => ({
+          ...p,
+          nodes: p.nodes.map((n) => n.id === id ? { ...n, size: clamped } : n),
+        }));
+      },
 
-      setNodeAspect: (id, aspect) =>
-        set((s) => {
-          const clamped = Math.max(0.4, Math.min(2.5, aspect));
-          const nodes = s.project.nodes.map((n) => n.id === id ? { ...n, aspect: clamped } : n);
-          const p = touch({ ...s.project, nodes });
-          queueSave(p);
-          return { project: p };
-        }),
+      setNodeAspect: (id, aspect) => {
+        const clamped = Math.max(0.4, Math.min(2.5, aspect));
+        updateCurrent(set, (p) => ({
+          ...p,
+          nodes: p.nodes.map((n) => n.id === id ? { ...n, aspect: clamped } : n),
+        }));
+      },
 
       promotePostit: (postitId, x, y, type = 'room') => {
         const st = get();
@@ -219,109 +259,129 @@ export const useProject = create<ProjectStore>()(
         if (!pst) return '';
         const id = uid('nd');
         const node: BubbleNode = {
-          id,
-          type,
+          id, type,
           name: pst.text.slice(0, 30) || '새 방',
           notes: pst.text,
           icons: [],
           x, y,
           promotedFrom: postitId,
         };
-        set((s) => {
-          const postits = s.project.postits.map((p) =>
-            p.id === postitId ? { ...p, promoted: true } : p
-          );
-          const p = touch({ ...s.project, nodes: [...s.project.nodes, node], postits });
-          queueSave(p);
-          return { project: p, selection: { kind: 'node', id } };
-        });
+        updateCurrent(set, (p) => ({
+          ...p,
+          nodes: [...p.nodes, node],
+          postits: p.postits.map((x2) => x2.id === postitId ? { ...x2, promoted: true } : x2),
+        }));
+        set({ selection: { kind: 'node', id } });
         return id;
       },
 
       addEdge: (from, to, type = 'open') => {
         if (from === to) return null;
         const st = get();
-        // 중복 방지
         if (st.project.edges.some((e) => e.from === from && e.to === to)) return null;
         const id = uid('eg');
         const edge: BubbleEdge = { id, from, to, type };
-        set((s) => {
-          const p = touch({ ...s.project, edges: [...s.project.edges, edge] });
-          queueSave(p);
-          return { project: p };
-        });
+        updateCurrent(set, (p) => ({ ...p, edges: [...p.edges, edge] }));
         return id;
       },
 
-      updateEdge: (id, patch) =>
-        set((s) => {
-          const edges = s.project.edges.map((e) => e.id === id ? { ...e, ...patch } : e);
-          const p = touch({ ...s.project, edges });
-          queueSave(p);
-          return { project: p };
-        }),
+      updateEdge: (id, patch) => updateCurrent(set, (p) => ({
+        ...p,
+        edges: p.edges.map((e) => e.id === id ? { ...e, ...patch } : e),
+      })),
 
-      removeEdge: (id) =>
-        set((s) => {
-          const edges = s.project.edges.filter((e) => e.id !== id);
-          const p = touch({ ...s.project, edges });
-          queueSave(p);
+      removeEdge: (id) => {
+        updateCurrent(set, (p) => ({
+          ...p,
+          edges: p.edges.filter((e) => e.id !== id),
+        }));
+        set((s) => ({
+          selection: s.selection.kind === 'edge' && s.selection.id === id ? { kind: 'none' } : s.selection,
+        }));
+      },
+
+      // ── 데코 요소 ──
+      addDecoration: (kind, x, y) => {
+        const id = uid('dec');
+        const dec: Decoration =
+          kind === 'arrow'
+            ? { id, kind, x, y, x2: x + 140, y2: y }
+            : kind === 'ellipse'
+            ? { id, kind, x, y, width: 140, height: 90 }
+            : { id, kind, x, y, width: 180, height: 40, text: '텍스트' };
+        updateCurrent(set, (p) => ({ ...p, decorations: [...(p.decorations ?? []), dec] }));
+        set({ selection: { kind: 'decoration', id } });
+        return id;
+      },
+
+      updateDecoration: (id, patch) => updateCurrent(set, (p) => ({
+        ...p,
+        decorations: (p.decorations ?? []).map((d) => d.id === id ? { ...d, ...patch } : d),
+      })),
+
+      removeDecoration: (id) => {
+        updateCurrent(set, (p) => ({
+          ...p,
+          decorations: (p.decorations ?? []).filter((d) => d.id !== id),
+        }));
+        set((s) => ({
+          selection: s.selection.kind === 'decoration' && s.selection.id === id ? { kind: 'none' } : s.selection,
+        }));
+      },
+
+      moveDecoration: (id, x, y) => updateCurrent(set, (p) => {
+        const dec = (p.decorations ?? []).find((d) => d.id === id);
+        if (!dec) return p;
+        // arrow는 두 끝점 모두 같은 delta로 이동
+        if (dec.kind === 'arrow' && dec.x2 !== undefined && dec.y2 !== undefined) {
+          const dx = x - dec.x;
+          const dy = y - dec.y;
           return {
-            project: p,
-            selection: s.selection.kind === 'edge' && s.selection.id === id ? { kind: 'none' } : s.selection,
+            ...p,
+            decorations: p.decorations.map((d) =>
+              d.id === id ? { ...d, x, y, x2: (d.x2 ?? 0) + dx, y2: (d.y2 ?? 0) + dy } : d,
+            ),
           };
-        }),
+        }
+        return {
+          ...p,
+          decorations: p.decorations.map((d) => d.id === id ? { ...d, x, y } : d),
+        };
+      }),
 
-      setView: (patch) =>
-        set((s) => {
-          const p = touch({ ...s.project, view: { ...s.project.view, ...patch } });
-          queueSave(p);
-          return { project: p };
-        }),
+      setView: (patch) => updateCurrent(set, (p) => ({
+        ...p, view: { ...p.view, ...patch },
+      })),
 
-      select: (s) => set({ selection: s }),
+      select: (sel) => set({ selection: sel }),
 
-      setApiKey: (k) =>
-        set((s) => {
-          const p = touch({
-            ...s.project,
-            ai: { ...s.project.ai, apiKey: k, provider: k ? 'gemini' : 'none' },
-          });
-          queueSave(p);
-          return { project: p };
-        }),
+      setApiKey: (k) => updateCurrent(set, (p) => ({
+        ...p,
+        ai: { ...p.ai, apiKey: k, provider: k ? 'gemini' : 'none' },
+      })),
 
-      bumpUsage: (model) =>
-        set((s) => {
-          const u = { ...s.project.ai.usage };
-          if (u.lastResetDay !== today()) {
-            u.proUsedToday = 0;
-            u.flashUsedToday = 0;
-            u.lastResetDay = today();
-          }
-          if (model === 'pro') u.proUsedToday += 1;
-          else u.flashUsedToday += 1;
-          const p = touch({ ...s.project, ai: { ...s.project.ai, usage: u } });
-          queueSave(p);
-          return { project: p };
-        }),
+      bumpUsage: (model) => updateCurrent(set, (p) => {
+        const u = { ...p.ai.usage };
+        if (u.lastResetDay !== today()) {
+          u.proUsedToday = 0;
+          u.flashUsedToday = 0;
+          u.lastResetDay = today();
+        }
+        if (model === 'pro') u.proUsedToday += 1;
+        else u.flashUsedToday += 1;
+        return { ...p, ai: { ...p.ai, usage: u } };
+      }),
 
-      setMjMaster: (mjMasterPrompt) =>
-        set((s) => {
-          const p = touch({ ...s.project, mjMasterPrompt });
-          queueSave(p);
-          return { project: p };
-        }),
+      setMjMaster: (mjMasterPrompt) => updateCurrent(set, (p) => ({
+        ...p, mjMasterPrompt,
+      })),
 
-      applyAutoLayoutPositions: (positions) =>
-        set((s) => {
-          const nodes = s.project.nodes.map((n) =>
-            positions[n.id] ? { ...n, x: positions[n.id].x, y: positions[n.id].y } : n
-          );
-          const p = touch({ ...s.project, nodes });
-          queueSave(p);
-          return { project: p };
-        }),
+      applyAutoLayoutPositions: (positions) => updateCurrent(set, (p) => ({
+        ...p,
+        nodes: p.nodes.map((n) =>
+          positions[n.id] ? { ...n, x: positions[n.id].x, y: positions[n.id].y } : n
+        ),
+      })),
     };
   })
 );

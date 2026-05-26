@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useProject } from '../../store/project';
 import { downloadJSON, uploadJSON } from '../../store/persistence';
@@ -11,26 +11,13 @@ export function ConceptBar() {
   const project = useProject((s) => s.project);
   const setName = useProject((s) => s.setName);
   const setConcept = useProject((s) => s.setConcept);
-  const loadFromJSON = useProject((s) => s.loadFromJSON);
+  const importProject = useProject((s) => s.importProject);
   const reset = useProject((s) => s.reset);
 
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // 메뉴 바깥 클릭 시 닫기. 다음 tick부터 청취 (열기 클릭과 동시 트리거 방지)
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      const t = e.target as Element;
-      if (t && (t.closest('.cb-actions') || t.closest('[data-cb-menu]'))) return;
-      setMenuOpen(false);
-    };
-    const id = window.setTimeout(() => document.addEventListener('click', handler), 0);
-    return () => {
-      window.clearTimeout(id);
-      document.removeEventListener('click', handler);
-    };
-  }, [menuOpen]);
+  // 외부 클릭은 invisible backdrop이 처리
 
   const updatedLabel = formatRelative(updatedAt);
 
@@ -91,29 +78,36 @@ export function ConceptBar() {
       </div>
 
       <div className="cb-actions">
-        <button className="cb-btn" onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen}>
+        <button
+          className="cb-btn"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-expanded={menuOpen}
+        >
           파일 ▾
         </button>
         {menuOpen && createPortal(
-          <div className="cb-menu" data-cb-menu>
-            <button onClick={() => { downloadJSON(project, `${name || 'level'}.json`); setMenuOpen(false); }}>
-              JSON 내보내기
-            </button>
-            <button onClick={async () => {
-              setMenuOpen(false);
-              const p = await uploadJSON();
-              if (p) loadFromJSON(p);
-            }}>
-              JSON 불러오기
-            </button>
-            <hr />
-            <button onClick={() => {
-              setMenuOpen(false);
-              if (confirm('현재 작업을 모두 비우시겠습니까?')) reset();
-            }} className="cb-menu-danger">
-              새 프로젝트
-            </button>
-          </div>,
+          <>
+            <div className="cb-menu-overlay" onClick={() => setMenuOpen(false)} />
+            <div className="cb-menu" data-cb-menu>
+              <button onClick={() => { downloadJSON(project, `${name || 'level'}.json`); setMenuOpen(false); }}>
+                JSON 내보내기
+              </button>
+              <button onClick={async () => {
+                setMenuOpen(false);
+                const p = await uploadJSON();
+                if (p) importProject(p);
+              }}>
+                JSON 불러오기 (새 탭)
+              </button>
+              <hr />
+              <button onClick={() => {
+                setMenuOpen(false);
+                if (confirm('현재 캔버스를 초기화합니다 (탭은 유지). 계속하시겠습니까?')) reset();
+              }} className="cb-menu-danger">
+                현재 캔버스 초기화
+              </button>
+            </div>
+          </>,
           document.body
         )}
       </div>

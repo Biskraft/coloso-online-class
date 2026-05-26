@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { ProjectTabs } from './components/shell/ProjectTabs';
 import { ConceptBar } from './components/shell/ConceptBar';
 import { PostitPad } from './components/shell/PostitPad';
 import { CanvasShell } from './components/shell/CanvasShell';
@@ -35,6 +36,7 @@ export function App() {
 
   return (
     <div className="app-shell paper-grain">
+      <ProjectTabs />
       <ConceptBar />
       <div className="app-body">
         <PostitPad />

@@ -3,17 +3,21 @@ import { useProject } from '../../store/project';
 import { BubbleNode } from './BubbleNode';
 import { Edge } from './Edge';
 import { Minimap } from './Minimap';
+import { Decoration } from './Decoration';
 import { NODE_STYLES } from './node-shapes';
 import { usePanZoom, screenToWorld } from './usePanZoom';
-import type { NodeType } from '../../types';
+import type { NodeType, DecorationKind } from '../../types';
 import './SvgCanvas.css';
 
 interface DragState {
-  kind: 'node' | 'edge' | 'resize' | 'none';
+  kind: 'node' | 'edge' | 'resize' | 'deco-move' | 'deco-arrow' | 'deco-resize' | 'none';
   nodeId?: string;
   edgeFrom?: string;
+  decId?: string;
+  arrowEndpoint?: 'start' | 'end';
   startWorld?: { x: number; y: number };
   nodeStart?: { x: number; y: number };
+  decStart?: { x: number; y: number; x2?: number; y2?: number; width?: number; height?: number };
   cursorWorld?: { x: number; y: number };
 }
 
@@ -21,6 +25,10 @@ export function SvgCanvas() {
   const svgRef = useRef<SVGSVGElement>(null);
   const nodes = useProject((s) => s.project.nodes);
   const edges = useProject((s) => s.project.edges);
+  const decorations = useProject((s) => s.project.decorations ?? []);
+  const addDecoration = useProject((s) => s.addDecoration);
+  const updateDecoration = useProject((s) => s.updateDecoration);
+  const moveDecoration = useProject((s) => s.moveDecoration);
   const view = useProject((s) => s.project.view);
   const selection = useProject((s) => s.selection);
   const moveNode = useProject((s) => s.moveNode);
@@ -58,6 +66,36 @@ export function SvgCanvas() {
     (e.target as Element).setPointerCapture(e.pointerId);
   }, []);
 
+  // 데코: 이동 (전체 드래그)
+  const onDecoPointerDown = useCallback((e: React.PointerEvent, id: string) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const sw = screenToWorld(transform, e.clientX - rect.left, e.clientY - rect.top);
+    const d = useProject.getState().project.decorations.find((x) => x.id === id);
+    if (!d) return;
+    setDrag({
+      kind: 'deco-move',
+      decId: id,
+      startWorld: sw,
+      decStart: { x: d.x, y: d.y, x2: d.x2, y2: d.y2, width: d.width, height: d.height },
+    });
+    (e.target as Element).setPointerCapture(e.pointerId);
+  }, [transform]);
+
+  // 데코: 화살표 끝점 드래그
+  const onDecoArrowEndpoint = useCallback((e: React.PointerEvent, id: string, endpoint: 'start' | 'end') => {
+    e.stopPropagation();
+    setDrag({ kind: 'deco-arrow', decId: id, arrowEndpoint: endpoint });
+    (e.target as Element).setPointerCapture(e.pointerId);
+  }, []);
+
+  // 데코: 리사이즈 (타원/텍스트 SE 핸들)
+  const onDecoResize = useCallback((e: React.PointerEvent, id: string) => {
+    e.stopPropagation();
+    setDrag({ kind: 'deco-resize', decId: id });
+    (e.target as Element).setPointerCapture(e.pointerId);
+  }, []);
+
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (drag.kind === 'none' || !svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
@@ -69,25 +107,36 @@ export function SvgCanvas() {
     } else if (drag.kind === 'edge') {
       setDrag({ ...drag, cursorWorld: sw });
     } else if (drag.kind === 'resize' && drag.nodeId) {
-      // SE 핸들이 커서를 따라감 → 노드의 가로/세로를 독립적으로 자유 변형
       const n = useProject.getState().project.nodes.find((x) => x.id === drag.nodeId);
       if (!n) return;
       const base = NODE_STYLES[n.type];
-      // SE 핸들 = (rx*cos45 + 4, ry*sin45 + 4)에서 cursor (world) 가져옴
-      // local offset = cursor - node center
       const dx = Math.abs(sw.x - n.x);
       const dy = Math.abs(sw.y - n.y);
-      // 핸들 위치 = corner. rx = (dx - 4) / cos45
       const SQRT2 = Math.SQRT2;
       const newRx = Math.max(20, (dx - 4) * SQRT2);
       const newRy = Math.max(15, (dy - 4) * SQRT2);
-      // size + aspect로 분해
       const newSize = Math.sqrt((newRx * newRy) / (base.rx * base.ry));
       const newAspect = (newRx * base.ry) / (newRy * base.rx);
       resizeNode(drag.nodeId, newSize);
       setNodeAspect(drag.nodeId, newAspect);
+    } else if (drag.kind === 'deco-move' && drag.decId && drag.startWorld && drag.decStart) {
+      const nx = drag.decStart.x + (sw.x - drag.startWorld.x);
+      const ny = drag.decStart.y + (sw.y - drag.startWorld.y);
+      moveDecoration(drag.decId, nx, ny);
+    } else if (drag.kind === 'deco-arrow' && drag.decId && drag.arrowEndpoint) {
+      if (drag.arrowEndpoint === 'start') {
+        updateDecoration(drag.decId, { x: sw.x, y: sw.y });
+      } else {
+        updateDecoration(drag.decId, { x2: sw.x, y2: sw.y });
+      }
+    } else if (drag.kind === 'deco-resize' && drag.decId) {
+      const d = useProject.getState().project.decorations.find((x) => x.id === drag.decId);
+      if (!d) return;
+      const w = Math.max(40, (sw.x - d.x) * 2);
+      const h = Math.max(20, (sw.y - d.y) * 2);
+      updateDecoration(drag.decId, { width: w, height: h });
     }
-  }, [drag, transform, moveNode, resizeNode, setNodeAspect]);
+  }, [drag, transform, moveNode, resizeNode, setNodeAspect, moveDecoration, updateDecoration]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     if (drag.kind === 'edge' && drag.edgeFrom) {
@@ -163,10 +212,18 @@ export function SvgCanvas() {
     if (!svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
     const center = screenToWorld(transform, rect.width / 2, rect.height / 2);
-    // 약간의 무작위 오프셋
     const offsetX = (Math.random() - 0.5) * 60;
     const offsetY = (Math.random() - 0.5) * 60;
     addNode({ x: center.x + offsetX, y: center.y + offsetY, type, name: defaultName(type) });
+  };
+
+  const addDecoQuick = (kind: DecorationKind) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const center = screenToWorld(transform, rect.width / 2, rect.height / 2);
+    const offsetX = (Math.random() - 0.5) * 80;
+    const offsetY = (Math.random() - 0.5) * 80;
+    addDecoration(kind, center.x + offsetX, center.y + offsetY);
   };
 
   // 뷰포트 (월드 좌표계)
@@ -234,6 +291,17 @@ export function SvgCanvas() {
               onResizePointerDown={onResizePointerDown}
             />
           ))}
+          {/* 데코 요소 — 노드 위에 그려 항상 위 */}
+          {decorations.map((d) => (
+            <Decoration
+              key={d.id}
+              dec={d}
+              selected={selection.kind === 'decoration' && selection.id === d.id}
+              onPointerDown={onDecoPointerDown}
+              onArrowEndpointDown={onDecoArrowEndpoint}
+              onResizeDown={onDecoResize}
+            />
+          ))}
         </g>
       </svg>
 
@@ -261,6 +329,12 @@ export function SvgCanvas() {
           <button onClick={() => addNodeQuick('boss')}     title="보스">보스</button>
           <button onClick={() => addNodeQuick('hub')}      title="허브">허브</button>
           <button onClick={() => addNodeQuick('save')}     title="세이브">세이브</button>
+        </div>
+        <span className="ct-sep" />
+        <div className="ct-group" role="group" aria-label="데코 추가">
+          <button onClick={() => addDecoQuick('arrow')} title="화살표">↗ 화살표</button>
+          <button onClick={() => addDecoQuick('ellipse')} title="회색 타원">○ 타원</button>
+          <button onClick={() => addDecoQuick('text')} title="텍스트">A 텍스트</button>
         </div>
         <span className="ct-sep" />
         <button onClick={fitToContent} title="화면 맞춤">⇲ 맞춤</button>
