@@ -6,6 +6,7 @@ import type {
 } from '../types';
 import { emptyProject } from '../types';
 import { uid, today } from '../utils/id';
+import { loadWorkspace, saveWorkspace } from './persistence';
 
 /* ─────────────────────────────────────────────────────────
    멀티 프로젝트 워크스페이스 — 모든 상태는 메모리만.
@@ -93,11 +94,30 @@ const updateCurrent = (
 
 export const useProject = create<ProjectStore>()(
   subscribeWithSelector((set, get) => {
-    const first = emptyProject(newId());
+    // 워크스페이스 복원 시도. 없으면 새 빈 프로젝트
+    const restored = loadWorkspace();
+    let initialProjects: Project[];
+    let initialCurrentId: string;
+    if (restored && restored.projects.length > 0) {
+      // decorations 필드 마이그레이션 (이전 버전 호환)
+      initialProjects = restored.projects.map((p) => ({
+        ...p,
+        decorations: p.decorations ?? [],
+      }));
+      initialCurrentId = restored.projects.some((p) => p.id === restored.currentId)
+        ? restored.currentId
+        : initialProjects[0].id;
+    } else {
+      const first = emptyProject(newId());
+      initialProjects = [first];
+      initialCurrentId = first.id;
+    }
+    const initialActive = initialProjects.find((p) => p.id === initialCurrentId)!;
+
     return {
-      projects: [first],
-      currentId: first.id,
-      project: first,
+      projects: initialProjects,
+      currentId: initialCurrentId,
+      project: initialActive,
       selection: { kind: 'none' },
 
       // ── 워크스페이스 ──
@@ -384,4 +404,17 @@ export const useProject = create<ProjectStore>()(
       })),
     };
   })
+);
+
+/* ─── 자동저장 — projects 또는 currentId 변화 시 디바운스 저장 ─── */
+let saveTimer: number | undefined;
+const SAVE_DEBOUNCE = 400;
+
+useProject.subscribe(
+  (s) => ({ projects: s.projects, currentId: s.currentId }),
+  ({ projects, currentId }) => {
+    if (saveTimer) window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => saveWorkspace(projects, currentId), SAVE_DEBOUNCE);
+  },
+  { equalityFn: (a, b) => a.projects === b.projects && a.currentId === b.currentId },
 );

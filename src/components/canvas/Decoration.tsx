@@ -39,28 +39,22 @@ function ArrowDeco({
   const x1 = dec.x, y1 = dec.y;
   const x2 = dec.x2 ?? dec.x + 140, y2 = dec.y2 ?? dec.y;
   const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
-  // 큰 화살촉 + 굵은 선 + 빨간색 — 아이콘처럼 강조
-  const ARROW = '#CF5547';
-  const arrowSize = 24;
-  const lineWidth = selected ? 7 : 6;
-  const points = `${-arrowSize},${-arrowSize * 0.6} ${arrowSize * 0.45},0 ${-arrowSize},${arrowSize * 0.6}`;
+  // vivid red 아이콘 톤 — 외곽선 없음, 굵은 선, 큰 화살촉
+  const ARROW = '#E5202B';
+  const lineWidth = selected ? 28 : 24;
+  const arrowSize = 44;
+  const points = `${-arrowSize},${-arrowSize * 0.7} ${arrowSize * 0.5},0 ${-arrowSize},${arrowSize * 0.7}`;
 
   return (
     <g data-decoration={dec.id} className="deco">
       {/* 클릭 영역 */}
       <line
         x1={x1} y1={y1} x2={x2} y2={y2}
-        stroke="transparent" strokeWidth="20"
+        stroke="transparent" strokeWidth={lineWidth + 12}
         onPointerDown={onSelect}
       />
-      {/* 선택 표시 — 검정 외곽 halo */}
-      {selected && (
-        <line
-          x1={x1} y1={y1} x2={x2} y2={y2}
-          stroke="#1A1814" strokeWidth={lineWidth + 4} strokeLinecap="round"
-        />
-      )}
-      {/* 본선 — 굵은 빨강 */}
+      {/* 선택 표시는 양 끝 핸들로 — halo 없음 */}
+      {/* 본선 — 굵은 vivid red, 아웃라인 없음 */}
       <line
         x1={x1} y1={y1} x2={x2} y2={y2}
         stroke={ARROW}
@@ -68,14 +62,12 @@ function ArrowDeco({
         strokeLinecap="round"
         pointerEvents="none"
       />
-      {/* 화살촉 — 큰 빨강 + 검정 외곽선 */}
+      {/* 화살촉 — 큰 vivid red, 아웃라인 없음 */}
       <polygon
         points={points}
         fill={ARROW}
-        stroke="#1A1814"
-        strokeWidth="2"
+        stroke="none"
         strokeLinejoin="round"
-        strokeLinecap="round"
         transform={`translate(${x2} ${y2}) rotate(${angle})`}
         pointerEvents="none"
       />

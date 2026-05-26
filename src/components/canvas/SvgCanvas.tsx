@@ -176,6 +176,14 @@ export function SvgCanvas() {
     promotePostit(pid, sw.x, sw.y);
   };
 
+  // 데코 렌더 순서 — 텍스트(가장 뒤) → 화살표 → 타원(가장 앞)
+  const orderedDecorations = useMemo(() => {
+    const text = decorations.filter((d) => d.kind === 'text');
+    const arrow = decorations.filter((d) => d.kind === 'arrow');
+    const ellipse = decorations.filter((d) => d.kind === 'ellipse');
+    return [...text, ...arrow, ...ellipse];
+  }, [decorations]);
+
   // 같은 노드쌍의 엣지를 평행 offset 적용
   const edgesWithOffset = useMemo(() => {
     const groups = new Map<string, string[]>();
@@ -257,7 +265,18 @@ export function SvgCanvas() {
         <rect data-bg x="-100000" y="-100000" width="200000" height="200000" fill="transparent" />
 
         <g transform={`translate(${transform.x} ${transform.y}) scale(${transform.k})`}>
-          {/* 엣지 (먼저, 노드 아래). 같은 노드쌍 중복 엣지는 평행 offset */}
+          {/* 데코 요소 — 다이어그램(엣지·노드)보다 *뒤*에. 내부 순서: 텍스트 → 화살표 → 타원 */}
+          {orderedDecorations.map((d) => (
+            <Decoration
+              key={d.id}
+              dec={d}
+              selected={selection.kind === 'decoration' && selection.id === d.id}
+              onPointerDown={onDecoPointerDown}
+              onArrowEndpointDown={onDecoArrowEndpoint}
+              onResizeDown={onDecoResize}
+            />
+          ))}
+          {/* 엣지 (노드 아래). 같은 노드쌍 중복 엣지는 평행 offset */}
           {edgesWithOffset.map(({ edge: e, offset }) => {
             const from = nodes.find((n) => n.id === e.from);
             const to = nodes.find((n) => n.id === e.to);
@@ -289,17 +308,6 @@ export function SvgCanvas() {
               onPointerDownNode={onPointerDownNode}
               onHandlePointerDown={onHandlePointerDown}
               onResizePointerDown={onResizePointerDown}
-            />
-          ))}
-          {/* 데코 요소 — 노드 위에 그려 항상 위 */}
-          {decorations.map((d) => (
-            <Decoration
-              key={d.id}
-              dec={d}
-              selected={selection.kind === 'decoration' && selection.id === d.id}
-              onPointerDown={onDecoPointerDown}
-              onArrowEndpointDown={onDecoArrowEndpoint}
-              onResizeDown={onDecoResize}
             />
           ))}
         </g>

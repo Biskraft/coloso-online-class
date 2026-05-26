@@ -1,9 +1,46 @@
 import type { Project } from '../types';
 
 /* ─────────────────────────────────────────────────────────
-   영구 저장 없음 — 모든 프로젝트는 메모리에서만.
-   JSON export/import만 영구화 수단.
+   워크스페이스 영속화 — 모든 프로젝트 + 활성 ID
+   localStorage 자동 저장/복원 (디바운스)
    ───────────────────────────────────────────────────────── */
+
+const KEY = 'bubble-atelier::workspace';
+const VERSION = 1;
+
+export interface Workspace {
+  v: number;
+  projects: Project[];
+  currentId: string;
+}
+
+export function loadWorkspace(): Workspace | null {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Workspace;
+    if (parsed.v !== VERSION) return null;
+    if (!Array.isArray(parsed.projects) || parsed.projects.length === 0) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function saveWorkspace(projects: Project[], currentId: string): void {
+  try {
+    const ws: Workspace = { v: VERSION, projects, currentId };
+    localStorage.setItem(KEY, JSON.stringify(ws));
+  } catch (e) {
+    console.warn('localStorage 저장 실패', e);
+  }
+}
+
+export function clearWorkspace(): void {
+  localStorage.removeItem(KEY);
+}
+
+/* ─── JSON 파일 입출력 (개별 프로젝트) ─── */
 
 export function downloadJSON(p: Project, filename = 'level-design.json') {
   const blob = new Blob([JSON.stringify(p, null, 2)], { type: 'application/json' });
