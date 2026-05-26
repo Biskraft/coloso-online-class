@@ -34,6 +34,7 @@ export interface BubbleNode {
   name: string;
   x: number;
   y: number;
+  size?: number;            // 1.0 기본, 0.6~2.5 권장 — 타입 기본 크기에 곱해짐
   notes: string;
   icons: string[];          // 아이콘 키 배열 (예: 'chasm', 'dash_required')
   mjPrompt?: string;        // 개별 노드 MJ 프롬프트

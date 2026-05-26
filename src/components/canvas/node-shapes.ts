@@ -3,7 +3,7 @@ import { roughEllipse } from '../../utils/rough-path';
 
 export interface NodeStyle {
   label: string;
-  icon: string;             // emoji-like symbol
+  icon: string;
   rx: number;
   ry: number;
   fill: string;
@@ -73,21 +73,28 @@ export interface NodeShapeOpts {
   cx: number;
   cy: number;
   type: NodeType;
+  size?: number;
   rough: boolean;
   seed: string;
 }
 
-export function nodePath(o: NodeShapeOpts): string {
-  const s = NODE_STYLES[o.type];
+/** 노드의 실제(스케일 적용) 반지름 — 핸들·엣지 위치 계산용 */
+export function nodeRadii(type: NodeType, size = 1): { rx: number; ry: number } {
+  const s = NODE_STYLES[type];
+  return { rx: s.rx * size, ry: s.ry * size };
+}
+
+/** 노드 path 배열 — clean 모드는 1개, rough 모드는 2개 (겹친 스트로크) */
+export function nodePaths(o: NodeShapeOpts): string[] {
+  const { rx, ry } = nodeRadii(o.type, o.size ?? 1);
   if (o.rough) {
-    return roughEllipse(o.cx, o.cy, s.rx, s.ry, {
+    return roughEllipse(o.cx, o.cy, rx, ry, {
       seed: o.seed,
-      tremor: 1.6,
-      segments: 28,
+      roughness: 1.0,
+      passes: 2,
     });
   }
-  // 깨끗 모드: 완벽한 SVG 타원을 path로 표현
-  return ellipsePath(o.cx, o.cy, s.rx, s.ry);
+  return [ellipsePath(o.cx, o.cy, rx, ry)];
 }
 
 function ellipsePath(cx: number, cy: number, rx: number, ry: number): string {

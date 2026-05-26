@@ -31,6 +31,7 @@ interface ProjectStore {
   updateNode: (id: string, patch: Partial<BubbleNode>) => void;
   removeNode: (id: string) => void;
   moveNode: (id: string, x: number, y: number) => void;
+  resizeNode: (id: string, size: number) => void;
   promotePostit: (postitId: string, x: number, y: number, type?: NodeType) => string;
 
   // 엣지
@@ -188,6 +189,15 @@ export const useProject = create<ProjectStore>()(
       moveNode: (id, x, y) =>
         set((s) => {
           const nodes = s.project.nodes.map((n) => n.id === id ? { ...n, x, y } : n);
+          const p = touch({ ...s.project, nodes });
+          queueSave(p);
+          return { project: p };
+        }),
+
+      resizeNode: (id, size) =>
+        set((s) => {
+          const clamped = Math.max(0.5, Math.min(3.0, size));
+          const nodes = s.project.nodes.map((n) => n.id === id ? { ...n, size: clamped } : n);
           const p = touch({ ...s.project, nodes });
           queueSave(p);
           return { project: p };

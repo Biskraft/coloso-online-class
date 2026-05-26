@@ -74,6 +74,8 @@ function EmptyInspector() {
 function NodeInspector({ node }: { node: BubbleNode }) {
   const updateNode = useProject((s) => s.updateNode);
   const removeNode = useProject((s) => s.removeNode);
+  const resizeNode = useProject((s) => s.resizeNode);
+  const size = node.size ?? 1;
   return (
     <div className="ins-section">
       <div className="ins-section-head">
@@ -84,6 +86,26 @@ function NodeInspector({ node }: { node: BubbleNode }) {
       <label className="ins-field">
         <span>이름</span>
         <input value={node.name} onChange={(e) => updateNode(node.id, { name: e.target.value })} />
+      </label>
+
+      <label className="ins-field">
+        <span>크기 · {Math.round(size * 100)}%</span>
+        <div className="ins-size-row">
+          <input
+            type="range"
+            min="0.5"
+            max="2.5"
+            step="0.05"
+            value={size}
+            onChange={(e) => resizeNode(node.id, parseFloat(e.target.value))}
+            className="ins-size-slider"
+          />
+          <button
+            onClick={() => resizeNode(node.id, 1)}
+            className="ins-size-reset"
+            title="기본 크기로"
+          >↻</button>
+        </div>
       </label>
 
       <label className="ins-field">

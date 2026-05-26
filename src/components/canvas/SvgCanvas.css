@@ -30,11 +30,22 @@
 .bn-handle {
   cursor: crosshair;
   filter: drop-shadow(0 1px 2px rgba(58, 50, 38, 0.20));
+  transition: r var(--dur-fast) var(--ease-out);
 }
 
 .bn-handle:hover {
   r: 8;
   fill: var(--brick);
+  stroke: var(--paper-50);
+}
+
+.bn-handle-resize {
+  cursor: nwse-resize;
+}
+
+.bn-handle-resize:hover {
+  r: 8;
+  fill: var(--blueprint);
   stroke: var(--paper-50);
 }
 

@@ -9,12 +9,14 @@ import type { NodeType } from '../../types';
 import './SvgCanvas.css';
 
 interface DragState {
-  kind: 'node' | 'edge' | 'none';
+  kind: 'node' | 'edge' | 'resize' | 'none';
   nodeId?: string;
   edgeFrom?: string;
   startWorld?: { x: number; y: number };
   nodeStart?: { x: number; y: number };
   cursorWorld?: { x: number; y: number };
+  startSize?: number;
+  startDistance?: number;
 }
 
 export function SvgCanvas() {
@@ -24,6 +26,7 @@ export function SvgCanvas() {
   const view = useProject((s) => s.project.view);
   const selection = useProject((s) => s.selection);
   const moveNode = useProject((s) => s.moveNode);
+  const resizeNode = useProject((s) => s.resizeNode);
   const addEdge = useProject((s) => s.addEdge);
   const select = useProject((s) => s.select);
   const addNode = useProject((s) => s.addNode);
@@ -52,6 +55,22 @@ export function SvgCanvas() {
     (e.target as Element).setPointerCapture(e.pointerId);
   }, [transform]);
 
+  const onResizePointerDown = useCallback((e: React.PointerEvent, id: string) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const sw = screenToWorld(transform, e.clientX - rect.left, e.clientY - rect.top);
+    const n = useProject.getState().project.nodes.find((x) => x.id === id);
+    if (!n) return;
+    const distance = Math.hypot(sw.x - n.x, sw.y - n.y);
+    setDrag({
+      kind: 'resize',
+      nodeId: id,
+      startSize: n.size ?? 1,
+      startDistance: Math.max(1, distance),
+    });
+    (e.target as Element).setPointerCapture(e.pointerId);
+  }, [transform]);
+
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (drag.kind === 'none' || !svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
@@ -62,8 +81,14 @@ export function SvgCanvas() {
       moveNode(drag.nodeId, nx, ny);
     } else if (drag.kind === 'edge') {
       setDrag({ ...drag, cursorWorld: sw });
+    } else if (drag.kind === 'resize' && drag.nodeId && drag.startSize && drag.startDistance) {
+      const n = useProject.getState().project.nodes.find((x) => x.id === drag.nodeId);
+      if (!n) return;
+      const d = Math.hypot(sw.x - n.x, sw.y - n.y);
+      const newSize = drag.startSize * (d / drag.startDistance);
+      resizeNode(drag.nodeId, newSize);
     }
-  }, [drag, transform, moveNode]);
+  }, [drag, transform, moveNode, resizeNode]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     if (drag.kind === 'edge' && drag.edgeFrom) {
@@ -193,6 +218,7 @@ export function SvgCanvas() {
               selected={selection.kind === 'node' && selection.id === n.id}
               onPointerDownNode={onPointerDownNode}
               onHandlePointerDown={onHandlePointerDown}
+              onResizePointerDown={onResizePointerDown}
             />
           ))}
         </g>

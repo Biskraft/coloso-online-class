@@ -1,5 +1,5 @@
 import type { BubbleNode } from '../../types';
-import { NODE_STYLES } from './node-shapes';
+import { NODE_STYLES, nodeRadii } from './node-shapes';
 
 interface Props {
   nodes: BubbleNode[];
@@ -14,11 +14,11 @@ export function Minimap({ nodes, viewBox }: Props) {
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const n of nodes) {
-    const s = NODE_STYLES[n.type];
-    minX = Math.min(minX, n.x - s.rx);
-    minY = Math.min(minY, n.y - s.ry);
-    maxX = Math.max(maxX, n.x + s.rx);
-    maxY = Math.max(maxY, n.y + s.ry);
+    const r = nodeRadii(n.type, n.size ?? 1);
+    minX = Math.min(minX, n.x - r.rx);
+    minY = Math.min(minY, n.y - r.ry);
+    maxX = Math.max(maxX, n.x + r.rx);
+    maxY = Math.max(maxY, n.y + r.ry);
   }
   const w = Math.max(1, maxX - minX);
   const h = Math.max(1, maxY - minY);
@@ -39,16 +39,16 @@ export function Minimap({ nodes, viewBox }: Props) {
       />
       {nodes.map((n) => {
         const s = NODE_STYLES[n.type];
+        const r = nodeRadii(n.type, n.size ?? 1);
         return (
           <ellipse
             key={n.id}
             cx={n.x} cy={n.y}
-            rx={s.rx} ry={s.ry}
+            rx={r.rx} ry={r.ry}
             fill={s.fill} stroke={s.stroke} strokeWidth="2"
           />
         );
       })}
-      {/* 뷰포트 표시 */}
       <rect
         x={viewBox.x} y={viewBox.y}
         width={viewBox.w} height={viewBox.h}

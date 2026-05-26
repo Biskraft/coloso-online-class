@@ -1,5 +1,6 @@
 import dagre from '@dagrejs/dagre';
 import type { BubbleNode, BubbleEdge } from '../types';
+import { nodeRadii } from '../components/canvas/node-shapes';
 
 export function autoLayout(
   nodes: BubbleNode[],
@@ -17,7 +18,8 @@ export function autoLayout(
   g.setDefaultEdgeLabel(() => ({}));
 
   nodes.forEach((n) => {
-    g.setNode(n.id, { width: NODE_W(n.type), height: NODE_H(n.type) });
+    const r = nodeRadii(n.type, n.size ?? 1);
+    g.setNode(n.id, { width: r.rx * 2 + 20, height: r.ry * 2 + 20 });
   });
   edges.forEach((e) => {
     g.setEdge(e.from, e.to);
@@ -31,17 +33,4 @@ export function autoLayout(
     if (np) out[n.id] = { x: np.x, y: np.y };
   });
   return out;
-}
-
-function NODE_W(t: string): number {
-  if (t === 'boss') return 180;
-  if (t === 'vista') return 160;
-  if (t === 'hub') return 160;
-  return 140;
-}
-function NODE_H(t: string): number {
-  if (t === 'boss') return 120;
-  if (t === 'vista') return 100;
-  if (t === 'hub') return 100;
-  return 90;
 }

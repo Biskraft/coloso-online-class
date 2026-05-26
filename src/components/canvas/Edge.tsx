@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { BubbleEdge, BubbleNode, EdgeType } from '../../types';
-import { roughCurve } from '../../utils/rough-path';
+import { roughLine } from '../../utils/rough-path';
+import { nodeRadii } from './node-shapes';
 
 interface Props {
   edge: BubbleEdge;
@@ -18,20 +19,64 @@ export const EDGE_STYLE: Record<EdgeType, { stroke: string; dash?: string; width
   ability: { stroke: 'var(--brick)',       width: 2.0, dash: '2 4',             label: '능력' },
 };
 
+/** 타원 경계 위의 점 계산 — 중심에서 방향 (dirX, dirY)로 나가는 광선의 타원 교점 */
+function ellipseBoundary(
+  cx: number, cy: number,
+  rx: number, ry: number,
+  dirX: number, dirY: number,
+): { x: number; y: number } {
+  const k = Math.sqrt((dirX * dirX) / (rx * rx) + (dirY * dirY) / (ry * ry));
+  if (k === 0) return { x: cx, y: cy };
+  return { x: cx + dirX / k, y: cy + dirY / k };
+}
+
 export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
   const style = EDGE_STYLE[edge.type];
 
-  const path = useMemo(() => {
-    return roughCurve(from.x, from.y, to.x, to.y, {
-      seed: edge.id,
-      tremor: rough ? 1.2 : 0,
-      segments: 18,
-      curveStrength: rough ? 0.30 : 0.18,
-    });
-  }, [from.x, from.y, to.x, to.y, edge.id, rough]);
+  // 엣지가 노드 *가장자리*에서 시작/끝나도록 계산
+  const { startX, startY, endX, endY, angle } = useMemo(() => {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
 
-  // 화살표 위치: to 노드로부터 약간 떨어진 지점
-  const arrow = useMemo(() => arrowMarker(from, to, 18), [from.x, from.y, to.x, to.y]);
+    const fr = nodeRadii(from.type, from.size ?? 1);
+    const tr = nodeRadii(to.type, to.size ?? 1);
+
+    const fromEdge = ellipseBoundary(from.x, from.y, fr.rx, fr.ry, dx, dy);
+    const toEdge = ellipseBoundary(to.x, to.y, tr.rx, tr.ry, -dx, -dy);
+
+    // 시각적 숨쉴 공간 — 노드와 4px 떨어뜨리기
+    const gap = 4;
+    return {
+      startX: fromEdge.x + ux * gap,
+      startY: fromEdge.y + uy * gap,
+      endX:   toEdge.x - ux * gap,
+      endY:   toEdge.y - uy * gap,
+      angle:  Math.atan2(dy, dx) * 180 / Math.PI,
+    };
+  }, [from.x, from.y, to.x, to.y, from.type, from.size, to.type, to.size]);
+
+  const paths = useMemo(() => {
+    return roughLine(startX, startY, endX, endY, {
+      seed: edge.id,
+      roughness: rough ? 1.3 : 0,
+      bowing:    rough ? 0.7 : 0.25,
+      passes:    rough ? 2   : 1,
+    });
+  }, [startX, startY, endX, endY, edge.id, rough]);
+
+  // 화살표는 종착점에 정확히 위치
+  const arrowTip = { x: endX, y: endY };
+  const arrowSize = 7;
+  const arrowPoints =
+    `${-arrowSize},${-arrowSize * 0.6} ${arrowSize * 0.4},0 ${-arrowSize},${arrowSize * 0.6}`;
+
+  const showArrow = edge.type === 'oneway' || edge.type === 'ability' || edge.type === 'locked';
+
+  const midX = (startX + endX) / 2;
+  const midY = (startY + endY) / 2;
 
   return (
     <g
@@ -39,34 +84,39 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
       className="eg"
       onClick={(e) => { e.stopPropagation(); onSelect(edge.id); }}
     >
-      {/* 클릭 영역 */}
-      <path d={path} fill="none" stroke="transparent" strokeWidth="14" />
-      {/* 본선 */}
-      <path
-        d={path}
-        fill="none"
-        stroke={style.stroke}
-        strokeWidth={selected ? style.width + 1.2 : style.width}
-        strokeDasharray={style.dash}
-        strokeLinecap="round"
-        opacity={selected ? 1 : 0.92}
-      />
-      {/* 일방통행/능력 엣지에 화살표 */}
-      {(edge.type === 'oneway' || edge.type === 'ability' || edge.type === 'locked') && (
+      {/* 두꺼운 투명 클릭 영역 (첫 path 기준) */}
+      <path d={paths[0]} fill="none" stroke="transparent" strokeWidth="14" />
+      {/* 본선 — rough면 2패스 겹침 */}
+      {paths.map((d, idx) => (
+        <path
+          key={idx}
+          d={d}
+          fill="none"
+          stroke={style.stroke}
+          strokeWidth={
+            rough
+              ? (selected ? style.width + 0.5 : style.width * 0.82)
+              : (selected ? style.width + 1.2 : style.width)
+          }
+          strokeOpacity={
+            rough ? (idx === 0 ? 0.88 : 0.62) : (selected ? 1 : 0.92)
+          }
+          strokeDasharray={style.dash}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ))}
+
+      {showArrow && (
         <polygon
-          points={arrow.points}
+          points={arrowPoints}
           fill={style.stroke}
-          transform={`rotate(${arrow.angle} ${arrow.cx} ${arrow.cy})`}
+          transform={`translate(${arrowTip.x} ${arrowTip.y}) rotate(${angle})`}
         />
       )}
-      {/* 잠금/능력 라벨 */}
+
       {(edge.keyId || edge.abilityId || edge.label) && (
-        <EdgeLabel
-          x={(from.x + to.x) / 2}
-          y={(from.y + to.y) / 2}
-          text={edge.label ?? edge.keyId ?? edge.abilityId ?? ''}
-          color={style.stroke}
-        />
+        <EdgeLabel x={midX} y={midY} text={edge.label ?? edge.keyId ?? edge.abilityId ?? ''} color={style.stroke} />
       )}
     </g>
   );
@@ -84,21 +134,4 @@ function EdgeLabel({ x, y, text, color }: { x: number; y: number; text: string; 
       </text>
     </g>
   );
-}
-
-function arrowMarker(from: { x: number; y: number }, to: { x: number; y: number }, distance: number) {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len;
-  const uy = dy / len;
-  // 노드 가장자리에서 distance만큼 안쪽
-  const offset = 60; // 노드 반지름 근사
-  const cx = to.x - ux * offset;
-  const cy = to.y - uy * offset;
-  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-  const size = 7;
-  // 화살표 좌표 (오른쪽 방향 기준)
-  const points = `${cx - size},${cy - size * 0.6} ${cx + size * 0.6},${cy} ${cx - size},${cy + size * 0.6}`;
-  return { points, angle: 0, cx, cy };
 }
