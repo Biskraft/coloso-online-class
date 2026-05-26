@@ -176,12 +176,13 @@ export function SvgCanvas() {
     promotePostit(pid, sw.x, sw.y);
   };
 
-  // 데코 렌더 순서 — 텍스트(가장 뒤) → 화살표 → 타원(가장 앞)
+  // 데코 z-order (뒤→앞): 회색 타원 → 화살표 → 텍스트
+  // SVG는 먼저 그린 것이 뒤 → 타원을 먼저, 텍스트를 마지막에
   const orderedDecorations = useMemo(() => {
     const text = decorations.filter((d) => d.kind === 'text');
     const arrow = decorations.filter((d) => d.kind === 'arrow');
     const ellipse = decorations.filter((d) => d.kind === 'ellipse');
-    return [...text, ...arrow, ...ellipse];
+    return [...ellipse, ...arrow, ...text];
   }, [decorations]);
 
   // 같은 노드쌍의 엣지를 평행 offset 적용
