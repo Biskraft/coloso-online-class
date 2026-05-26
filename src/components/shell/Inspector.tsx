@@ -366,10 +366,20 @@ function MjPanel({ nodeId }: { nodeId?: string }) {
       const r = await geminiCall({
         system: SYSTEM_MJ_MASTER,
         user: userMessageForMjMaster(project, DEFAULT_MJ_PARAMS),
-        maxTokens: 400,
+        maxTokens: 900,
       });
-      setMjMaster(sanitizeEnglishPrompt(r.text));
-      setAiNote(`AI 생성 (${r.modelUsed}${r.fallback ? ' · 폴백' : ''})`);
+      let cleaned = sanitizeEnglishPrompt(r.text);
+      // 응답이 너무 짧으면 (단어 < 40개) 오프라인 키 아트 문구로 자동 보강
+      const wc = cleaned.split(/\s+/).filter(Boolean).length;
+      if (wc < 40) {
+        cleaned = cleaned.replace(/--ar.+$/, '').trim();
+        cleaned = cleaned.replace(/,\s*$/, '');
+        cleaned += `, key art mood board for a video game, promotional poster composition, painterly digital illustration, masterful color theory, layered atmospheric depth, cinematic wide shot ${DEFAULT_MJ_PARAMS}`;
+        setAiNote(`AI 생성 (${r.modelUsed}${r.fallback ? ' · 폴백' : ''}) — 짧은 응답 자동 보강`);
+      } else {
+        setAiNote(`AI 생성 (${r.modelUsed}${r.fallback ? ' · 폴백' : ''})`);
+      }
+      setMjMaster(cleaned);
     } catch (e: any) {
       if (e instanceof NoKeyError) {
         setAiNote('AI 키 없음 — 오프라인 템플릿으로 대체');
