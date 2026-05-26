@@ -44,7 +44,8 @@ export function BubbleNode({
       transform={`translate(${node.x} ${node.y})`}
       onPointerDown={(e) => {
         e.stopPropagation();
-        select({ kind: 'node', id: node.id });
+        // 이미 선택돼 있으면(그룹 선택 포함) select 재호출 안 해 groupSelection 보존
+        if (!selected) select({ kind: 'node', id: node.id });
         onPointerDownNode(e, node.id);
       }}
       onPointerEnter={() => setHover(true)}

@@ -30,6 +30,8 @@ export function usePanZoom(svgRef: React.RefObject<SVGSVGElement>) {
           if (event.type === 'wheel') return true;
           return false;
         }
+        // Shift + 드래그는 박스 선택용 — panZoom 차단
+        if (event.shiftKey && event.type !== 'wheel') return false;
         return !event.button;
       })
       .on('zoom', (ev) => {

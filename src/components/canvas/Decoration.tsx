@@ -15,7 +15,7 @@ export function Decoration({ dec, selected, onPointerDown, onArrowEndpointDown, 
 
   const onSelect = (e: React.PointerEvent) => {
     e.stopPropagation();
-    select({ kind: 'decoration', id: dec.id });
+    if (!selected) select({ kind: 'decoration', id: dec.id });
     onPointerDown(e, dec.id);
   };
 

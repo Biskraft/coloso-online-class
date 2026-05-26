@@ -20,6 +20,8 @@ interface ProjectStore {
   currentId: string;
   project: Project;   // 현재 활성 프로젝트와 동기화된 참조
   selection: { kind: 'none' } | { kind: 'node'; id: string } | { kind: 'edge'; id: string } | { kind: 'postit'; id: string } | { kind: 'decoration'; id: string };
+  /** 다중 선택 — 노드와 데코 id를 통합으로 저장 */
+  groupSelection: string[];
 
   // 워크스페이스
   newProject: (name?: string) => string;
@@ -70,6 +72,13 @@ interface ProjectStore {
 
   // 선택
   select: (s: ProjectStore['selection']) => void;
+  /** 노드+데코 다중 선택. clear: [] */
+  setGroupSelection: (ids: string[]) => void;
+  selectAll: () => void;
+  /** 그룹 선택된 모든 요소를 동일 delta로 이동 */
+  moveGroup: (dx: number, dy: number) => void;
+  /** 그룹 선택된 모든 요소 삭제 */
+  removeGroup: () => void;
 
   // AI
   setApiKey: (k: string | undefined) => void;
@@ -145,6 +154,7 @@ export const useProject = create<ProjectStore>()(
       currentId: initialCurrentId,
       project: initialActive,
       selection: { kind: 'none' },
+      groupSelection: [],
 
       // ── 워크스페이스 ──
       newProject: (name = '새 레벨') => {
@@ -452,7 +462,56 @@ export const useProject = create<ProjectStore>()(
         ...p, view: { ...p.view, ...patch },
       })),
 
-      select: (sel) => set({ selection: sel }),
+      select: (sel) => set({ selection: sel, groupSelection: [] }),
+
+      setGroupSelection: (ids) => set({
+        groupSelection: ids,
+        selection: { kind: 'none' },
+      }),
+
+      selectAll: () => {
+        const st = get();
+        const nodeIds = st.project.nodes.map((n) => n.id);
+        const decoIds = (st.project.decorations ?? []).map((d) => d.id);
+        set({
+          groupSelection: [...nodeIds, ...decoIds],
+          selection: { kind: 'none' },
+        });
+      },
+
+      moveGroup: (dx, dy) => {
+        const st = get();
+        const idSet = new Set(st.groupSelection);
+        if (idSet.size === 0) return;
+        updateCurrent(set, (p) => ({
+          ...p,
+          nodes: p.nodes.map((n) =>
+            idSet.has(n.id) ? { ...n, x: n.x + dx, y: n.y + dy } : n
+          ),
+          decorations: (p.decorations ?? []).map((d) => {
+            if (!idSet.has(d.id)) return d;
+            const next: Decoration = { ...d, x: d.x + dx, y: d.y + dy };
+            if (d.kind === 'arrow' && d.x2 !== undefined && d.y2 !== undefined) {
+              next.x2 = d.x2 + dx;
+              next.y2 = d.y2 + dy;
+            }
+            return next;
+          }),
+        }));
+      },
+
+      removeGroup: () => {
+        const st = get();
+        const idSet = new Set(st.groupSelection);
+        if (idSet.size === 0) return;
+        updateCurrent(set, (p) => ({
+          ...p,
+          nodes: p.nodes.filter((n) => !idSet.has(n.id)),
+          edges: p.edges.filter((e) => !idSet.has(e.from) && !idSet.has(e.to)),
+          decorations: (p.decorations ?? []).filter((d) => !idSet.has(d.id)),
+        }));
+        set({ groupSelection: [], selection: { kind: 'none' } });
+      },
 
       setApiKey: (k) => updateCurrent(set, (p) => ({
         ...p,

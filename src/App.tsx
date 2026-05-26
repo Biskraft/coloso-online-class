@@ -26,19 +26,29 @@ export function App() {
       const st = useProject.getState();
       const tag = (e.target as HTMLElement).tagName;
       const inField = tag === 'INPUT' || tag === 'TEXTAREA';
+      const meta = e.ctrlKey || e.metaKey;
 
       if (e.key === 'Escape') {
         st.select({ kind: 'none' });
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && !inField) {
+        // 그룹 선택 우선
+        if (st.groupSelection.length > 0) {
+          st.removeGroup();
+          return;
+        }
         const sel = st.selection;
         if (sel.kind === 'node') st.removeNode(sel.id);
         else if (sel.kind === 'edge') st.removeEdge(sel.id);
         else if (sel.kind === 'postit') st.removePostit(sel.id);
         else if (sel.kind === 'decoration') st.removeDecoration(sel.id);
       }
+      // Ctrl+A 전체 선택 (캔버스의 노드 + 데코)
+      if (meta && (e.key === 'a' || e.key === 'A') && !inField) {
+        e.preventDefault();
+        st.selectAll();
+      }
       // Undo/Redo
-      const meta = e.ctrlKey || e.metaKey;
       if (meta && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
         if (e.shiftKey) redoProject();

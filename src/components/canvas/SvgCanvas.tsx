@@ -10,7 +10,7 @@ import type { NodeType, DecorationKind } from '../../types';
 import './SvgCanvas.css';
 
 interface DragState {
-  kind: 'node' | 'edge' | 'resize' | 'deco-move' | 'deco-arrow' | 'deco-resize' | 'none';
+  kind: 'node' | 'edge' | 'resize' | 'deco-move' | 'deco-arrow' | 'deco-resize' | 'group' | 'box-select' | 'none';
   nodeId?: string;
   edgeFrom?: string;
   decId?: string;
@@ -19,6 +19,8 @@ interface DragState {
   nodeStart?: { x: number; y: number };
   decStart?: { x: number; y: number; x2?: number; y2?: number; width?: number; height?: number };
   cursorWorld?: { x: number; y: number };
+  /** 박스 선택 시 현재 사각형 */
+  boxRect?: { x0: number; y0: number; x1: number; y1: number };
 }
 
 export function SvgCanvas() {
@@ -26,6 +28,9 @@ export function SvgCanvas() {
   const nodes = useProject((s) => s.project.nodes);
   const edges = useProject((s) => s.project.edges);
   const decorations = useProject((s) => s.project.decorations ?? []);
+  const groupSelection = useProject((s) => s.groupSelection);
+  const setGroupSelection = useProject((s) => s.setGroupSelection);
+  const moveGroup = useProject((s) => s.moveGroup);
   const addDecoration = useProject((s) => s.addDecoration);
   const updateDecoration = useProject((s) => s.updateDecoration);
   const moveDecoration = useProject((s) => s.moveDecoration);
@@ -47,7 +52,14 @@ export function SvgCanvas() {
     if (!svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
     const sw = screenToWorld(transform, e.clientX - rect.left, e.clientY - rect.top);
-    const n = useProject.getState().project.nodes.find((x) => x.id === id);
+    const st = useProject.getState();
+    // 그룹 선택에 포함된 노드를 잡으면 → 그룹 이동
+    if (st.groupSelection.includes(id)) {
+      setDrag({ kind: 'group', startWorld: sw, cursorWorld: sw });
+      (e.target as Element).setPointerCapture(e.pointerId);
+      return;
+    }
+    const n = st.project.nodes.find((x) => x.id === id);
     if (!n) return;
     setDrag({ kind: 'node', nodeId: id, startWorld: sw, nodeStart: { x: n.x, y: n.y } });
     (e.target as Element).setPointerCapture(e.pointerId);
@@ -71,7 +83,13 @@ export function SvgCanvas() {
     if (!svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
     const sw = screenToWorld(transform, e.clientX - rect.left, e.clientY - rect.top);
-    const d = useProject.getState().project.decorations.find((x) => x.id === id);
+    const st = useProject.getState();
+    if (st.groupSelection.includes(id)) {
+      setDrag({ kind: 'group', startWorld: sw, cursorWorld: sw });
+      (e.target as Element).setPointerCapture(e.pointerId);
+      return;
+    }
+    const d = st.project.decorations.find((x) => x.id === id);
     if (!d) return;
     setDrag({
       kind: 'deco-move',
@@ -135,27 +153,62 @@ export function SvgCanvas() {
       const w = Math.max(40, (sw.x - d.x) * 2);
       const h = Math.max(20, (sw.y - d.y) * 2);
       updateDecoration(drag.decId, { width: w, height: h });
+    } else if (drag.kind === 'group' && drag.startWorld && drag.cursorWorld) {
+      const dx = sw.x - drag.cursorWorld.x;
+      const dy = sw.y - drag.cursorWorld.y;
+      moveGroup(dx, dy);
+      setDrag({ ...drag, cursorWorld: sw });
+    } else if (drag.kind === 'box-select' && drag.startWorld) {
+      setDrag({
+        ...drag,
+        boxRect: {
+          x0: Math.min(drag.startWorld.x, sw.x),
+          y0: Math.min(drag.startWorld.y, sw.y),
+          x1: Math.max(drag.startWorld.x, sw.x),
+          y1: Math.max(drag.startWorld.y, sw.y),
+        },
+      });
     }
   }, [drag, transform, moveNode, resizeNode, setNodeAspect, moveDecoration, updateDecoration]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     if (drag.kind === 'edge' && drag.edgeFrom) {
-      // 떨어진 대상이 노드인지 검사
       const target = document.elementFromPoint(e.clientX, e.clientY);
       const g = target?.closest('[data-node]') as SVGGElement | null;
       const toId = g?.getAttribute('data-node');
       if (toId && toId !== drag.edgeFrom) {
         addEdge(drag.edgeFrom, toId, 'open');
       }
+    } else if (drag.kind === 'box-select' && drag.boxRect) {
+      // 박스 안에 들어가는 노드·데코 찾아 group selection 적용
+      const { x0, y0, x1, y1 } = drag.boxRect;
+      const st = useProject.getState();
+      const ids: string[] = [];
+      st.project.nodes.forEach((n) => {
+        if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1) ids.push(n.id);
+      });
+      (st.project.decorations ?? []).forEach((d) => {
+        if (d.x >= x0 && d.x <= x1 && d.y >= y0 && d.y <= y1) ids.push(d.id);
+      });
+      if (ids.length > 0) setGroupSelection(ids);
+      else setGroupSelection([]);
     }
     setDrag({ kind: 'none' });
-  }, [drag, addEdge]);
+  }, [drag, addEdge, setGroupSelection]);
 
   const onBgPointerDown = useCallback((e: React.PointerEvent) => {
     if (e.target === svgRef.current || (e.target as SVGElement).hasAttribute('data-bg')) {
-      select({ kind: 'none' });
+      // Shift drag → 박스 선택, 평범 클릭 → 선택 해제
+      if (e.shiftKey && svgRef.current) {
+        const rect = svgRef.current.getBoundingClientRect();
+        const sw = screenToWorld(transform, e.clientX - rect.left, e.clientY - rect.top);
+        setDrag({ kind: 'box-select', startWorld: sw, boxRect: { x0: sw.x, y0: sw.y, x1: sw.x, y1: sw.y } });
+      } else {
+        select({ kind: 'none' });
+        setGroupSelection([]);
+      }
     }
-  }, [select]);
+  }, [select, transform, setGroupSelection]);
 
   const onDragOver = (e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('application/x-postit-id')) {
@@ -271,7 +324,10 @@ export function SvgCanvas() {
             <Decoration
               key={d.id}
               dec={d}
-              selected={selection.kind === 'decoration' && selection.id === d.id}
+              selected={
+                (selection.kind === 'decoration' && selection.id === d.id) ||
+                groupSelection.includes(d.id)
+              }
               onPointerDown={onDecoPointerDown}
               onArrowEndpointDown={onDecoArrowEndpoint}
               onResizeDown={onDecoResize}
@@ -305,12 +361,28 @@ export function SvgCanvas() {
               key={n.id}
               node={n}
               rough={view.edgeStyle === 'rough'}
-              selected={selection.kind === 'node' && selection.id === n.id}
+              selected={
+                (selection.kind === 'node' && selection.id === n.id) ||
+                groupSelection.includes(n.id)
+              }
               onPointerDownNode={onPointerDownNode}
               onHandlePointerDown={onHandlePointerDown}
               onResizePointerDown={onResizePointerDown}
             />
           ))}
+          {/* 박스 선택 사각형 */}
+          {drag.kind === 'box-select' && drag.boxRect && (
+            <rect
+              x={drag.boxRect.x0} y={drag.boxRect.y0}
+              width={drag.boxRect.x1 - drag.boxRect.x0}
+              height={drag.boxRect.y1 - drag.boxRect.y0}
+              fill="rgba(207, 85, 71, 0.10)"
+              stroke="var(--brick)"
+              strokeWidth="1.4"
+              strokeDasharray="6 4"
+              pointerEvents="none"
+            />
+          )}
         </g>
       </svg>
 
