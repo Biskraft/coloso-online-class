@@ -194,8 +194,6 @@
   margin: 0 4px;
 }
 
-.ct-layout { color: var(--brick) !important; font-weight: 500; }
-
 .ct-zoom {
   padding: 0 8px;
   color: var(--ink-500);

@@ -9,6 +9,8 @@ interface Props {
   to: BubbleNode;
   rough: boolean;
   selected: boolean;
+  /** 같은 노드쌍에 여러 엣지가 있을 때 수직 평행 offset (px). 0 = 단일 */
+  offset?: number;
   onSelect: (id: string) => void;
 }
 
@@ -37,18 +39,23 @@ function ellipseBoundary(
   return { x: cx + dirX / k, y: cy + dirY / k };
 }
 
-export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
+export function Edge({ edge, from, to, rough, selected, offset = 0, onSelect }: Props) {
   const style = EDGE_STYLE[edge.type];
 
   // 선은 노드 *안쪽으로* 깊이 들어가서 절대 끊기지 않게.
-  // 노드 fill이 z-order 위에 덮어 자연스러운 끝 처리.
-  // 화살표는 노드 가장자리 살짝 바깥에 별도 위치.
+  // 같은 노드쌍 중복 엣지는 수직 평행 offset으로 띄움.
   const { startX, startY, endX, endY, arrowX, arrowY, angle } = useMemo(() => {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     const len = Math.hypot(dx, dy) || 1;
     const ux = dx / len;
     const uy = dy / len;
+    // 수직 단위벡터 (offset 방향). 방향성 있는 엣지(from→to) 기준이므로
+    // A→B와 B→A는 같은 쌍이지만 dx 부호가 반대 → 자동으로 반대편으로 띄워짐
+    const px = -uy;
+    const py = ux;
+    const ox = px * offset;
+    const oy = py * offset;
 
     const fr = nodeRadii(from.type, from.size ?? 1, from.aspect ?? 1);
     const tr = nodeRadii(to.type, to.size ?? 1, to.aspect ?? 1);
@@ -56,20 +63,18 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
     const fromEdge = ellipseBoundary(from.x, from.y, fr.rx, fr.ry, dx, dy);
     const toEdge = ellipseBoundary(to.x, to.y, tr.rx, tr.ry, -dx, -dy);
 
-    // 선 끝점: 노드 *안쪽으로* 6px 들어감 → 노드 fill에 가려져 절대 안 끊김
     const inset = 6;
-    // 화살표 끝점: 노드 가장자리에서 외곽으로 2px → 화살표가 노드에 묻히지 않음
     const arrowOut = 2;
     return {
-      startX: fromEdge.x - ux * inset,
-      startY: fromEdge.y - uy * inset,
-      endX:   toEdge.x + ux * inset,
-      endY:   toEdge.y + uy * inset,
-      arrowX: toEdge.x - ux * arrowOut,
-      arrowY: toEdge.y - uy * arrowOut,
+      startX: fromEdge.x - ux * inset + ox,
+      startY: fromEdge.y - uy * inset + oy,
+      endX:   toEdge.x   + ux * inset + ox,
+      endY:   toEdge.y   + uy * inset + oy,
+      arrowX: toEdge.x   - ux * arrowOut + ox,
+      arrowY: toEdge.y   - uy * arrowOut + oy,
       angle:  Math.atan2(dy, dx) * 180 / Math.PI,
     };
-  }, [from.x, from.y, to.x, to.y, from.type, from.size, from.aspect, to.type, to.size, to.aspect]);
+  }, [from.x, from.y, to.x, to.y, from.type, from.size, from.aspect, to.type, to.size, to.aspect, offset]);
 
   const paths = useMemo(() => {
     // 단일 패스. rough 모드는 직선 평균을 따라가며 구불(휨 X, 떨림만)

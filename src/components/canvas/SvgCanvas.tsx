@@ -1,11 +1,10 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useMemo } from 'react';
 import { useProject } from '../../store/project';
 import { BubbleNode } from './BubbleNode';
 import { Edge } from './Edge';
 import { Minimap } from './Minimap';
 import { NODE_STYLES } from './node-shapes';
 import { usePanZoom, screenToWorld } from './usePanZoom';
-import { autoLayout } from '../../utils/layout-dagre';
 import type { NodeType } from '../../types';
 import './SvgCanvas.css';
 
@@ -31,7 +30,6 @@ export function SvgCanvas() {
   const select = useProject((s) => s.select);
   const addNode = useProject((s) => s.addNode);
   const promotePostit = useProject((s) => s.promotePostit);
-  const applyAutoLayout = useProject((s) => s.applyAutoLayoutPositions);
 
   const { transform, fitTo, reset, zoomBy } = usePanZoom(svgRef);
   const [drag, setDrag] = useState<DragState>({ kind: 'none' });
@@ -129,12 +127,25 @@ export function SvgCanvas() {
     promotePostit(pid, sw.x, sw.y);
   };
 
-  const handleAutoLayout = useCallback(() => {
-    if (nodes.length === 0) return;
-    const positions = autoLayout(nodes, edges, 'LR');
-    applyAutoLayout(positions);
-    setTimeout(() => fitToContent(), 50);
-  }, [nodes, edges, applyAutoLayout]);
+  // 같은 노드쌍의 엣지를 평행 offset 적용
+  const edgesWithOffset = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    edges.forEach((e) => {
+      const key = [e.from, e.to].sort().join('::');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(e.id);
+    });
+    const SPACING = 14;
+    return edges.map((e) => {
+      const key = [e.from, e.to].sort().join('::');
+      const ids = groups.get(key)!;
+      if (ids.length < 2) return { edge: e, offset: 0 };
+      const idx = ids.indexOf(e.id);
+      // (idx - (n-1)/2) * SPACING — 중앙 기준 좌우 대칭
+      const offset = (idx - (ids.length - 1) / 2) * SPACING;
+      return { edge: e, offset };
+    });
+  }, [edges]);
 
   const fitToContent = useCallback(() => {
     if (nodes.length === 0) return reset();
@@ -189,8 +200,8 @@ export function SvgCanvas() {
         <rect data-bg x="-100000" y="-100000" width="200000" height="200000" fill="transparent" />
 
         <g transform={`translate(${transform.x} ${transform.y}) scale(${transform.k})`}>
-          {/* 엣지 (먼저, 노드 아래) */}
-          {edges.map((e) => {
+          {/* 엣지 (먼저, 노드 아래). 같은 노드쌍 중복 엣지는 평행 offset */}
+          {edgesWithOffset.map(({ edge: e, offset }) => {
             const from = nodes.find((n) => n.id === e.from);
             const to = nodes.find((n) => n.id === e.to);
             if (!from || !to) return null;
@@ -202,6 +213,7 @@ export function SvgCanvas() {
                 to={to}
                 rough={view.edgeStyle === 'rough'}
                 selected={selection.kind === 'edge' && selection.id === e.id}
+                offset={offset}
                 onSelect={(id) => select({ kind: 'edge', id })}
               />
             );
@@ -251,9 +263,6 @@ export function SvgCanvas() {
           <button onClick={() => addNodeQuick('save')}     title="세이브">세이브</button>
         </div>
         <span className="ct-sep" />
-        <button onClick={handleAutoLayout} title="자동 정렬" className="ct-btn ct-layout">
-          ⌥ 자동 정렬
-        </button>
         <button onClick={fitToContent} title="화면 맞춤">⇲ 맞춤</button>
         <button onClick={() => zoomBy(1.25)} title="확대">＋</button>
         <button onClick={() => zoomBy(0.8)} title="축소">−</button>
