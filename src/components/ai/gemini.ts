@@ -140,16 +140,33 @@ export async function geminiCall(
 }
 
 export function extractJSON<T = unknown>(text: string): T | null {
-  // 코드펜스 제거
-  const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '').trim();
-  try {
-    return JSON.parse(cleaned) as T;
-  } catch {
-    // 본문에서 첫 JSON 블록 추출
-    const m = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-    if (m) {
-      try { return JSON.parse(m[0]) as T; } catch { return null; }
-    }
-    return null;
-  }
+  if (!text) return null;
+  // 1) 모든 코드펜스(시작/중간/끝)를 전역 제거
+  let cleaned = text
+    .replace(/```(?:json|JSON)?\s*/g, '')
+    .replace(/\s*```/g, '')
+    .trim();
+
+  // 2) 그대로 파싱 시도
+  try { return JSON.parse(cleaned) as T; } catch { /* 다음 단계 */ }
+
+  // 3) 첫 { 또는 [ 부터 마지막 매칭 } 또는 ] 까지 (greedy)
+  const firstObj = cleaned.indexOf('{');
+  const firstArr = cleaned.indexOf('[');
+  const firstIdx =
+    firstObj < 0 ? firstArr :
+    firstArr < 0 ? firstObj :
+    Math.min(firstObj, firstArr);
+  if (firstIdx < 0) return null;
+  const openChar = cleaned[firstIdx];
+  const closeChar = openChar === '{' ? '}' : ']';
+  const lastIdx = cleaned.lastIndexOf(closeChar);
+  if (lastIdx <= firstIdx) return null;
+
+  const candidate = cleaned.slice(firstIdx, lastIdx + 1);
+  try { return JSON.parse(candidate) as T; } catch { /* 다음 단계 */ }
+
+  // 4) trailing comma 제거 후 재시도
+  const noTrailing = candidate.replace(/,\s*([}\]])/g, '$1');
+  try { return JSON.parse(noTrailing) as T; } catch { return null; }
 }

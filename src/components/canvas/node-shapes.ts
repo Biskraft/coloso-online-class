@@ -15,7 +15,7 @@ export interface NodeStyle {
 /* ─────────────────────────────────────────────────────────
    레퍼런스 톤 매칭 — 솔리드 채도색, 굵은 검정 외곽선
    - 알파(rgba/opacity) 미사용
-   - Boss Keys 표기 규약 색 매핑:
+   - 3D 레벨 디자인 노드 타입 색 매핑:
      room  → BLUE   (Standard Zone)
      vista → YELLOW (Major Hub — 큰 랜드마크 공간)
      treasure → ORANGE (Optional/Secret Area)

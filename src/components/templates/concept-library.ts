@@ -59,7 +59,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'abl-01-dash-temple',
     title: '대시를 얻는 잊혀진 사원',
     mechanic: 'ability',
-    genres: ['액션 어드벤처', '메트로배니아'],
+    genres: ['3D 액션 어드벤처'],
     concept: {
       theme: '고대 정글에 묻힌 사원',
       intent: '플레이어가 대시 능력을 획득하고, 그 사용법을 환경에서 학습한 뒤 보스에서 시험한다',
@@ -81,7 +81,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'abl-02-doublejump-cathedral',
     title: '더블점프를 얻는 폐허 대성당',
     mechanic: 'ability',
-    genres: ['메트로배니아', '플랫포머'],
+    genres: ['3D 플랫포머', '3D 액션 어드벤처'],
     concept: {
       theme: '천장이 무너진 거대 대성당',
       intent: '수직 공간을 통해 더블점프의 가치를 즉시 체감시킨다',
@@ -103,7 +103,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'abl-03-grapple-canyon',
     title: '갈고리 능력을 얻는 협곡 유적',
     mechanic: 'ability',
-    genres: ['액션 어드벤처', '메트로배니아'],
+    genres: ['3D 액션 어드벤처'],
     concept: {
       theme: '바람 부는 사막 협곡 사이의 부유 유적',
       intent: '수평 이동의 자유를 갈고리로 확장',
@@ -124,7 +124,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'abl-04-wallclimb-crypt',
     title: '벽타기를 얻는 지하 묘소',
     mechanic: 'ability',
-    genres: ['메트로배니아', '닌자류'],
+    genres: ['3D 닌자 액션', '3D 클라이밍'],
     concept: {
       theme: '낮은 천장의 좁은 묘실들',
       intent: '벽타기로 가로/세로 모두를 자유롭게 만든다',
@@ -145,7 +145,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'abl-05-firebreath-volcano',
     title: '불을 뿜는 능력을 얻는 화산',
     mechanic: 'ability',
-    genres: ['액션 RPG', '판타지'],
+    genres: ['3D 액션 RPG', '판타지'],
     concept: {
       theme: '활동 중인 화산 내부',
       intent: '환경 자체가 능력의 시각적 메타포',
@@ -166,7 +166,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'abl-06-timeslow-clocktower',
     title: '시간 감속을 얻는 시계탑',
     mechanic: 'ability',
-    genres: ['액션', '퍼즐'],
+    genres: ['3D 액션 퍼즐'],
     concept: {
       theme: '거대 톱니바퀴들이 움직이는 시계탑',
       intent: '시간 감속을 통해 환경 퍼즐과 전투를 동시에 변형',
@@ -187,7 +187,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'abl-07-water-flooded-keep',
     title: '잠수 능력을 얻는 침수 요새',
     mechanic: 'ability',
-    genres: ['액션 어드벤처', '메트로배니아'],
+    genres: ['3D 액션 어드벤처'],
     concept: {
       theme: '반쯤 침수된 해안 요새',
       intent: '수평 공간을 수직-수중으로 확장',
@@ -208,7 +208,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'abl-08-shadow-spire',
     title: '그림자 통과 능력을 얻는 첨탑',
     mechanic: 'ability',
-    genres: ['액션 어드벤처', '메트로배니아'],
+    genres: ['3D 액션 어드벤처'],
     concept: {
       theme: '햇빛과 그림자가 교차하는 첨탑 외벽',
       intent: '빛/그림자 이원성을 능력으로 직접 표현',
@@ -231,7 +231,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'ste-01-manor-heist',
     title: '귀족 저택 잠입',
     mechanic: 'stealth',
-    genres: ['스텔스', '느와르'],
+    genres: ['3D 스텔스', '느와르'],
     concept: {
       theme: '연회가 한창인 18세기 귀족 저택',
       intent: '발각 시 즉사 패널티 대신 추격으로 페이스 변화',
@@ -252,7 +252,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'ste-02-warehouse-job',
     title: '항구 창고의 한 시간',
     mechanic: 'stealth',
-    genres: ['스텔스', '현대 액션'],
+    genres: ['3D 스텔스', '현대 액션'],
     concept: {
       theme: '비 오는 밤, 화물선 옆 창고',
       intent: '시간 제약과 패트롤 로테이션',
@@ -272,7 +272,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'ste-03-castle-spy',
     title: '적국 성의 첩보 임무',
     mechanic: 'stealth',
-    genres: ['스텔스', '판타지'],
+    genres: ['3D 스텔스', '판타지'],
     concept: {
       theme: '석조 성의 어두운 회랑',
       intent: '횃불 점멸과 그림자가 핵심 자원',
@@ -291,7 +291,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'ste-04-spacefacility',
     title: '폐쇄된 우주 시설 잠입',
     mechanic: 'stealth',
-    genres: ['SF 스텔스'],
+    genres: ['3D SF 스텔스'],
     concept: {
       theme: '비상등만 켜진 우주 정거장',
       intent: '센서·드론 적과 환경 활용',
@@ -311,7 +311,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'ste-05-temple-thief',
     title: '신전의 도둑',
     mechanic: 'stealth',
-    genres: ['스텔스', '인도아네어 판타지'],
+    genres: ['3D 액션 스텔스', '판타지'],
     concept: {
       theme: '계단식 사원의 보물 회랑',
       intent: '환경 함정과 함정 작동기 협업',
@@ -331,7 +331,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'ste-06-prison-break',
     title: '감옥 탈출',
     mechanic: 'stealth',
-    genres: ['스텔스', '드라마'],
+    genres: ['3D 스텔스 드라마'],
     concept: {
       theme: '낡은 석조 감옥',
       intent: '제약(무기 없음)에서 시작하는 점진적 권능 확장',
@@ -353,7 +353,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'puz-01-mirror-tower',
     title: '거울 빛 굴절 탑',
     mechanic: 'puzzle',
-    genres: ['퍼즐', '판타지'],
+    genres: ['3D 퍼즐 어드벤처'],
     concept: {
       theme: '거대 거울들이 회전하는 탑',
       intent: '빛 굴절 메커닉을 한 가지 룰로 5번 변주',
@@ -373,7 +373,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'puz-02-water-pumping',
     title: '수로의 수위 퍼즐 던전',
     mechanic: 'puzzle',
-    genres: ['퍼즐', '액션 어드벤처'],
+    genres: ['3D 액션 퍼즐'],
     concept: {
       theme: '지하 수로망',
       intent: '수위 변화로 같은 공간이 다른 레이아웃이 됨',
@@ -393,7 +393,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'puz-03-magnetic-cave',
     title: '자기장 동굴',
     mechanic: 'puzzle',
-    genres: ['퍼즐', 'SF'],
+    genres: ['3D SF 퍼즐'],
     concept: {
       theme: '자성 광물이 빛나는 동굴',
       intent: '극성 N/S 한 가지 룰의 깊은 변주',
@@ -413,7 +413,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'puz-04-clock-mechanism',
     title: '시계 톱니 던전',
     mechanic: 'puzzle',
-    genres: ['퍼즐', '스팀펑크'],
+    genres: ['3D 스팀펑크 퍼즐'],
     concept: {
       theme: '거대 시계 내부',
       intent: '회전·타이밍 동기화 퍼즐',
@@ -433,7 +433,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'puz-05-mushroom-forest',
     title: '거대 버섯 숲의 식물 퍼즐',
     mechanic: 'puzzle',
-    genres: ['퍼즐', '판타지'],
+    genres: ['3D 퍼즐 어드벤처'],
     concept: {
       theme: '바이오 발광 버섯이 가득한 숲',
       intent: '식물 성장 메커닉으로 환경 자체를 변형',
@@ -453,7 +453,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'puz-06-ice-sliding',
     title: '얼음 미끄럼 던전',
     mechanic: 'puzzle',
-    genres: ['퍼즐'],
+    genres: ['3D 퍼즐'],
     concept: {
       theme: '얼어붙은 동굴 호수',
       intent: '클래식 슬라이딩 퍼즐을 공간적 어휘로',
@@ -473,7 +473,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'puz-07-mirror-maze-asylum',
     title: '거울 미로 정신병원',
     mechanic: 'puzzle',
-    genres: ['퍼즐', '심리 호러'],
+    genres: ['3D 심리 호러'],
     concept: {
       theme: '버려진 정신병원의 거울 미로',
       intent: '공간 인지 자체를 퍼즐의 일부로',
@@ -493,7 +493,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'puz-08-block-pushing-pyramid',
     title: '블록 밀기 피라미드',
     mechanic: 'puzzle',
-    genres: ['퍼즐'],
+    genres: ['3D 퍼즐'],
     concept: {
       theme: '계단식 피라미드 내부',
       intent: '클래식 소코반 메커닉의 공간적 확장',
@@ -515,7 +515,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'cmb-01-arena-coliseum',
     title: '검투장 콜로세움',
     mechanic: 'combat',
-    genres: ['액션', '아레나'],
+    genres: ['3D 액션 아레나'],
     concept: {
       theme: '관중이 가득한 고대 검투장',
       intent: '웨이브 기반 전투 — 매 웨이브 새 메커닉 소개',
@@ -536,7 +536,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'cmb-02-defense-village',
     title: '마을 방어전',
     mechanic: 'combat',
-    genres: ['액션', '전략 액션'],
+    genres: ['3D 액션 전략'],
     concept: {
       theme: '안개 낀 강가 마을',
       intent: '시간이 핵심 자원 — 준비/방어/추격 3단계',
@@ -556,7 +556,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'cmb-03-corridor-shooter',
     title: '복도식 슈터 임무',
     mechanic: 'combat',
-    genres: ['FPS', '카지노 슈터'],
+    genres: ['3D FPS'],
     concept: {
       theme: '버려진 군사 시설',
       intent: '엄폐 기반 총격전, 무기 유형 4종 회전',
@@ -576,7 +576,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'cmb-04-boss-rush-temple',
     title: '신들의 보스 러시',
     mechanic: 'combat',
-    genres: ['액션', '판타지'],
+    genres: ['3D 액션', '판타지'],
     concept: {
       theme: '신들의 성소 — 짧은 회랑과 거대 챔버 교차',
       intent: '연속 보스 4종, 회복 통제',
@@ -596,7 +596,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'cmb-05-vehicle-chase',
     title: '차량 추격 시퀀스',
     mechanic: 'combat',
-    genres: ['액션', '레이싱'],
+    genres: ['3D 액션 레이싱'],
     concept: {
       theme: '비 오는 고속도로',
       intent: '이동하면서 전투 — 정적 공간을 동적으로',
@@ -616,7 +616,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'cmb-06-naval-boarding',
     title: '해상 함선 보딩',
     mechanic: 'combat',
-    genres: ['액션', '해적'],
+    genres: ['3D 액션 어드벤처', '해적'],
     concept: {
       theme: '폭풍우 속 적함의 갑판',
       intent: '비좁은 공간에서의 다층 전투',
@@ -636,7 +636,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'cmb-07-mech-factory',
     title: '메카 공장 침투전',
     mechanic: 'combat',
-    genres: ['SF 액션'],
+    genres: ['3D SF 액션'],
     concept: {
       theme: '거대 로봇을 제조하는 공장',
       intent: '컨베이어/프레스 환경이 곧 전장',
@@ -656,7 +656,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'cmb-08-soulslike-bridge',
     title: '소울라이크 다리 위 격투',
     mechanic: 'combat',
-    genres: ['소울라이크', '액션 RPG'],
+    genres: ['3D 소울라이크 액션 RPG'],
     concept: {
       theme: '안개 협곡 위의 좁은 석조 다리',
       intent: '단 하나의 다리 위에서 정밀 전투',
@@ -678,7 +678,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'exp-01-open-cove',
     title: '열린 해안 만 탐험',
     mechanic: 'exploration',
-    genres: ['오픈 어드벤처'],
+    genres: ['3D 오픈월드 어드벤처'],
     concept: {
       theme: '여러 작은 섬과 해안',
       intent: '비선형 탐험 — 플레이어가 순서를 정함',
@@ -698,7 +698,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'exp-02-vertical-canyon',
     title: '수직 협곡 도시',
     mechanic: 'exploration',
-    genres: ['탐험'],
+    genres: ['3D 탐험 어드벤처'],
     concept: {
       theme: '협곡 절벽에 매달린 도시',
       intent: '수직 탐험 — 위/아래 모두 발견 보상',
@@ -718,7 +718,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'exp-03-ruins-island',
     title: '신비의 유적 섬',
     mechanic: 'exploration',
-    genres: ['탐험', '리얼리즘 어드벤처'],
+    genres: ['3D 탐험 어드벤처', '리얼리즘'],
     concept: {
       theme: '무인도의 고대 문명 유적',
       intent: '환경 스토리텔링 중심',
@@ -738,7 +738,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'exp-04-cosmic-anomaly',
     title: '우주 이상점 탐사',
     mechanic: 'exploration',
-    genres: ['SF 탐험'],
+    genres: ['3D SF 탐험'],
     concept: {
       theme: '외계 행성의 비현실적 이상점',
       intent: '비현실 공간 — 물리 법칙 변형',
@@ -758,7 +758,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'exp-05-foggy-village',
     title: '안개 마을의 진실',
     mechanic: 'exploration',
-    genres: ['탐험', '심리 호러'],
+    genres: ['3D 심리 호러 탐험'],
     concept: {
       theme: '시간이 멈춘 듯한 안개 마을',
       intent: '느린 탐험으로 분위기 누적',
@@ -777,7 +777,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'exp-06-deep-forest',
     title: '깊은 숲의 영적 여행',
     mechanic: 'exploration',
-    genres: ['탐험', '판타지'],
+    genres: ['3D 판타지 탐험'],
     concept: {
       theme: '거대 고목들의 숲',
       intent: '비선형, 영적 보상',
@@ -797,7 +797,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'exp-07-haunted-mansion',
     title: '대저택 미스터리',
     mechanic: 'exploration',
-    genres: ['탐험', '미스터리'],
+    genres: ['3D 미스터리 어드벤처'],
     concept: {
       theme: '폐쇄된 빅토리아 대저택',
       intent: '방마다 단서, 자물쇠는 다른 방에',
@@ -817,7 +817,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'exp-08-sky-archipelago',
     title: '하늘 군도 비행 탐험',
     mechanic: 'exploration',
-    genres: ['탐험', '판타지'],
+    genres: ['3D 판타지 탐험'],
     concept: {
       theme: '하늘에 떠 있는 섬들의 군도',
       intent: '플레이어 자유 진행, 시각적 발견 중심',
@@ -839,7 +839,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'sur-01-blizzard-base',
     title: '눈보라 속 기지 생존',
     mechanic: 'survival',
-    genres: ['생존', '드라마'],
+    genres: ['3D 생존 드라마'],
     concept: {
       theme: '북극의 고립된 연구 기지',
       intent: '추위/연료/식량 3축 관리',
@@ -859,7 +859,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'sur-02-desert-caravan',
     title: '사막 캐러밴',
     mechanic: 'survival',
-    genres: ['생존'],
+    genres: ['3D 생존'],
     concept: {
       theme: '광활한 사막을 가로지르는 여정',
       intent: '물/그늘/체력 관리',
@@ -879,7 +879,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'sur-03-zombie-mall',
     title: '쇼핑몰의 좀비 농성',
     mechanic: 'survival',
-    genres: ['호러 생존'],
+    genres: ['3D 호러 생존'],
     concept: {
       theme: '폐쇄된 대형 쇼핑몰',
       intent: '공간 통제와 자원 채집의 교차',
@@ -899,7 +899,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'sur-04-island-castaway',
     title: '무인도 표류',
     mechanic: 'survival',
-    genres: ['생존'],
+    genres: ['3D 생존'],
     concept: {
       theme: '열대 무인도',
       intent: '0에서 시작해 점진적 능력 확장',
@@ -919,7 +919,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'sur-05-plague-village',
     title: '역병 마을 의무관',
     mechanic: 'survival',
-    genres: ['생존', '드라마'],
+    genres: ['3D 생존 드라마'],
     concept: {
       theme: '역병이 도는 중세 마을',
       intent: '한정된 의약품으로 누구를 살릴지 선택',
@@ -939,7 +939,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'sur-06-cave-trapped',
     title: '동굴 매몰 탈출',
     mechanic: 'survival',
-    genres: ['생존', '서스펜스'],
+    genres: ['3D 생존 서스펜스'],
     concept: {
       theme: '광산 사고 후 매몰된 갱도',
       intent: '산소·빛·체력 동시 관리',
@@ -961,7 +961,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'nar-01-childhood-home',
     title: '돌아온 어린 시절 집',
     mechanic: 'narrative',
-    genres: ['내러티브'],
+    genres: ['3D 내러티브'],
     concept: {
       theme: '오랜만에 방문한 부모님 집',
       intent: '공간이 곧 기억의 트리거',
@@ -1061,7 +1061,7 @@ export const TEMPLATES: ConceptTemplate[] = [
     id: 'nar-06-final-conversation',
     title: '마지막 대화',
     mechanic: 'narrative',
-    genres: ['내러티브'],
+    genres: ['3D 내러티브'],
     concept: {
       theme: '카페 한 곳에서의 대화',
       intent: '하나의 공간, 깊은 선택',

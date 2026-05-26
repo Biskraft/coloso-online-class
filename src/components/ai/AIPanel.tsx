@@ -163,7 +163,7 @@ export function AIPanel() {
           rows={3}
           value={seedText}
           onChange={(e) => setSeedText(e.target.value)}
-          placeholder="예: 메트로배니아 풍의 침수된 우주 정거장, 중력 조절 능력 획득"
+          placeholder="예: 3D 액션 어드벤처, 침수된 우주 정거장, 중력 조절 능력 획득"
           className="ai-textarea"
         />
         <button

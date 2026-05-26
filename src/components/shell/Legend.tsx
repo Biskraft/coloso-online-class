@@ -29,7 +29,7 @@ export function Legend({ onClose }: { onClose: () => void }) {
         <h3 className="hand">표기 규약</h3>
         <button onClick={onClose} className="lg-x" aria-label="닫기">×</button>
       </header>
-      <p className="lg-intro caption">Boss Keys 표기를 한국어로 단순화한 규약</p>
+      <p className="lg-intro caption">3D 게임 레벨 디자인 노드·간선 표기 규약</p>
 
       <h4>노드</h4>
       <ul className="lg-list">
