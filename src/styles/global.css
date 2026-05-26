@@ -1,0 +1,97 @@
+@import './tokens.css';
+@import './paper.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--fs-base);
+  color: var(--ink-900);
+  background: var(--paper-100);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'palt', 'kern';
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+input, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--blueprint);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+::selection {
+  background: var(--ochre-soft);
+  color: var(--ink-900);
+}
+
+/* 디스플레이 헤딩 */
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--ink-900);
+  margin: 0;
+  letter-spacing: -0.005em;
+}
+
+h1 { font-size: var(--fs-3xl); line-height: 1.05; }
+h2 { font-size: var(--fs-2xl); line-height: 1.1; }
+h3 { font-size: var(--fs-xl); line-height: 1.2; }
+
+/* 손글씨 강조 */
+.hand {
+  font-family: var(--font-hand);
+  font-weight: 600;
+}
+
+/* 캡션 */
+.caption {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-500);
+}
+
+/* 스크롤바 — 종이 톤 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--ink-300);
+  border-radius: 999px;
+  border: 2px solid var(--paper-100);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--ink-400); }

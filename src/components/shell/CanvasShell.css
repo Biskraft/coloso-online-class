@@ -1,0 +1,91 @@
+.canvas-shell {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+  height: 100%;
+  background: var(--paper-100);
+}
+
+.cs-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px var(--sp-4);
+  background: var(--paper-50);
+  border-bottom: 1px solid rgba(26, 24, 20, 0.08);
+}
+
+.cs-view-toggles {
+  display: flex;
+  gap: var(--sp-4);
+}
+
+.cs-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 11px;
+  color: var(--ink-700);
+  letter-spacing: 0.05em;
+}
+
+.cs-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cs-toggle-knob {
+  width: 26px;
+  height: 14px;
+  background: var(--paper-300);
+  border-radius: 999px;
+  position: relative;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.cs-toggle-knob::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 12px;
+  height: 12px;
+  background: var(--paper-50);
+  border-radius: 50%;
+  transition: transform var(--dur-fast) var(--ease-out);
+  box-shadow: 0 1px 2px rgba(26, 24, 20, 0.20);
+}
+
+.cs-toggle.is-on .cs-toggle-knob { background: var(--brick); }
+.cs-toggle.is-on .cs-toggle-knob::after { transform: translateX(12px); }
+.cs-toggle.is-on .cs-toggle-label { color: var(--ink-900); font-weight: 500; }
+
+.cs-legend-btn {
+  font-size: 11px;
+  color: var(--ink-700);
+  padding: 4px 10px;
+  border: 1px solid rgba(26, 24, 20, 0.16);
+  border-radius: 999px;
+  background: var(--paper-100);
+}
+.cs-legend-btn:hover { background: var(--paper-200); }
+.cs-legend-btn.is-on {
+  background: var(--ink-900);
+  color: var(--paper-50);
+  border-color: var(--ink-900);
+}
+
+.cs-canvas-area {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cs-canvas-area.no-grid .canvas-wrap.blueprint-grid {
+  background-image: none;
+  background-color: var(--paper-100);
+}

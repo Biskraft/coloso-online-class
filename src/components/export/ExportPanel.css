@@ -1,0 +1,107 @@
+.exp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.exp-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: var(--sp-3);
+  background: var(--paper-50);
+  border: 1px solid rgba(26, 24, 20, 0.10);
+  border-radius: var(--r-md);
+}
+
+.exp-stats > div {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.exp-stats strong {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--ink-900);
+}
+
+.exp-stats span {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+  font-family: var(--font-mono);
+}
+
+.exp-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.exp-btn {
+  padding: 10px;
+  font-size: var(--fs-sm);
+  color: var(--ink-900);
+  background: var(--paper-50);
+  border: 1px solid rgba(26, 24, 20, 0.18);
+  border-radius: var(--r-md);
+  transition: all var(--dur-fast) var(--ease-out);
+  text-align: center;
+}
+
+.exp-btn:hover:not(:disabled) {
+  background: var(--paper-200);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-paper-1);
+}
+
+.exp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.exp-btn--primary {
+  background: var(--brick);
+  color: var(--paper-50);
+  border-color: var(--brick);
+}
+.exp-btn--primary:hover:not(:disabled) {
+  background: var(--brick-deep);
+  border-color: var(--brick-deep);
+}
+
+.exp-note {
+  padding: 6px 8px;
+  background: var(--paper-200);
+  border-radius: var(--r-sm);
+  color: var(--ink-700);
+  font-family: var(--font-body);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+}
+
+.exp-help {
+  margin-top: var(--sp-2);
+}
+
+.exp-help summary {
+  font-size: 11px;
+  color: var(--ink-600);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.exp-help ul {
+  list-style: none;
+  padding: 6px 0 0;
+  margin: 0;
+  font-size: 11px;
+  color: var(--ink-700);
+  line-height: 1.55;
+}
+
+.exp-help strong {
+  color: var(--ink-900);
+  font-weight: 500;
+}

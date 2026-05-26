@@ -1,0 +1,80 @@
+.legend {
+  position: absolute;
+  top: calc(40px + var(--sp-3));
+  right: var(--sp-4);
+  width: 280px;
+  background: var(--paper-50);
+  border: 1px solid rgba(26, 24, 20, 0.16);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-paper-3);
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  z-index: 50;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.lg-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.lg-head h3 {
+  font-size: 22px;
+  color: var(--ink-900);
+  margin: 0;
+}
+
+.lg-x {
+  font-size: 16px;
+  color: var(--ink-500);
+  width: 20px;
+  height: 20px;
+}
+
+.lg-x:hover { color: var(--brick); }
+
+.lg-intro {
+  margin: 2px 0 var(--sp-3);
+}
+
+.legend h4 {
+  margin: var(--sp-3) 0 6px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--ink-700);
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid rgba(26, 24, 20, 0.10);
+  padding-bottom: 4px;
+}
+
+.lg-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lg-list li {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.lg-list strong {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-900);
+  font-weight: 500;
+}
+
+.lg-list span {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-500);
+  line-height: 1.4;
+  margin-top: 2px;
+}

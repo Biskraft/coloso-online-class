@@ -1,0 +1,45 @@
+.usage {
+  padding: 10px 12px;
+  background: var(--paper-100);
+  border-top: 1px solid rgba(26, 24, 20, 0.10);
+}
+
+.usage .caption {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ink-500);
+}
+
+.usage-off {
+  font-size: var(--fs-xs);
+  color: var(--ink-500);
+  font-style: italic;
+}
+
+.usage-row {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  margin-top: 4px;
+}
+
+.usage-label { color: var(--ink-700); }
+.usage-num { color: var(--ink-500); }
+
+.usage-bar {
+  height: 4px;
+  background: var(--paper-300);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.usage-fill {
+  height: 100%;
+  transition: width var(--dur-med) var(--ease-out);
+}
+
+.usage-fill--pro   { background: var(--brick); }
+.usage-fill--flash { background: var(--blueprint); }
