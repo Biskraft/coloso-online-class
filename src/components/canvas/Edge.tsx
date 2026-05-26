@@ -100,13 +100,26 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
       {/* 두꺼운 투명 클릭 영역 (첫 path 기준) */}
       <path d={paths[0]} fill="none" stroke="transparent" strokeWidth="14" />
       {/* 본선 — rough면 2패스 겹침 */}
+      {/* 선택 시 외곽 강조 halo — brick 솔리드, 본선보다 두껍게 */}
+      {selected && paths.map((d, idx) => (
+        <path
+          key={`halo-${idx}`}
+          d={d}
+          fill="none"
+          stroke="#CF5547"
+          strokeWidth={style.width + 8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ))}
+      {/* 본선 */}
       {paths.map((d, idx) => (
         <path
           key={idx}
           d={d}
           fill="none"
           stroke={style.stroke}
-          strokeWidth={selected ? style.width + 1.2 : style.width}
+          strokeWidth={selected ? style.width + 1.4 : style.width}
           strokeDasharray={style.dash}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -116,9 +129,9 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
       {showArrow && (
         <polygon
           points={arrowPoints}
-          fill={style.stroke}
+          fill={selected ? '#CF5547' : style.stroke}
           stroke="#1A1814"
-          strokeWidth="1.4"
+          strokeWidth={selected ? 2 : 1.4}
           strokeLinejoin="round"
           strokeLinecap="round"
           transform={`translate(${arrowX} ${arrowY}) rotate(${angle})`}
