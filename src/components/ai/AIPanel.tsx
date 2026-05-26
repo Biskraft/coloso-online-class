@@ -98,10 +98,40 @@ export function AIPanel() {
       const r = await geminiCall({
         system: SYSTEM_SEED_POSTITS,
         user: userMessageForSeedPostits(project),
-        maxTokens: 1200,
+        responseSchema: {
+          type: 'object',
+          properties: {
+            postits: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  text: { type: 'string' },
+                  type: { type: 'string' },
+                  color: { type: 'string' },
+                  tags: { type: 'array', items: { type: 'string' } },
+                },
+                required: ['text'],
+              },
+            },
+          },
+          required: ['postits'],
+        },
+        maxTokens: 1500,
       });
-      const data = extractJSON<{ postits: Array<{ text: string; type?: string; color?: PostitColor; tags?: string[] }> }>(r.text);
-      const items = data?.postits ?? [];
+      // root가 배열이거나 다른 키여도 흡수
+      const raw = extractJSON<any>(r.text);
+      let items: Array<{ text: string; type?: string; color?: PostitColor; tags?: string[] }> = [];
+      if (Array.isArray(raw)) items = raw;
+      else if (raw && typeof raw === 'object') {
+        items = raw.postits ?? raw.items ?? raw.cards ?? [];
+      }
+      items = items.filter((p) => p && typeof p.text === 'string' && p.text.trim());
+
+      if (items.length === 0) {
+        setNote('AI 응답에서 포스트잇을 추출하지 못함 — 컨셉을 조금 더 채운 뒤 다시 시도');
+        return;
+      }
       items.forEach((p) => {
         const id = addPostit(p.text, p.color ?? 'yellow');
         if (p.tags?.length) updatePostit(id, { tags: p.tags });
