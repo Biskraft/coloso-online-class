@@ -41,7 +41,7 @@ export const NODE_STYLES: Record<NodeType, NodeStyle> = {
     label: '전망',
     icon: '◇',
     rx: 80, ry: 50,
-    fill: '#E8C552',
+    fill: '#A88BB8',     /* 라벤더 보라 — 풍경/예고의 신비로운 톤 */
     stroke: OUTLINE,
     strokeWidth: 3.6,
     textColor: OUTLINE,
