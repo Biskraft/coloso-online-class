@@ -113,19 +113,24 @@ export function BubbleNode({
       >
         {s.label}
       </text>
-      {/* 아이콘 태그 — 노드 아래 작은 칩으로 시각화 */}
-      {node.icons.length > 0 && (
-        <foreignObject x={-rx - 20} y={ry + 6} width={rx * 2 + 40} height={28}>
-          <div className="bn-icon-tags">
-            {node.icons.slice(0, 6).map((k) => (
-              <span key={k} className="bn-icon-chip">{k}</span>
-            ))}
-            {node.icons.length > 6 && (
-              <span className="bn-icon-more">+{node.icons.length - 6}</span>
-            )}
-          </div>
-        </foreignObject>
-      )}
+      {/* 아이콘 태그 — 노드 아래 작은 칩으로 시각화. 여러 줄 가능 */}
+      {node.icons.length > 0 && (() => {
+        const tagCount = Math.min(node.icons.length, 8);
+        const estimatedRows = Math.max(1, Math.ceil(tagCount / 4));
+        const height = estimatedRows * 18 + 10;
+        return (
+          <foreignObject x={-rx - 30} y={ry + 6} width={rx * 2 + 60} height={height}>
+            <div className="bn-icon-tags">
+              {node.icons.slice(0, 8).map((k) => (
+                <span key={k} className="bn-icon-chip">{k}</span>
+              ))}
+              {node.icons.length > 8 && (
+                <span className="bn-icon-more">+{node.icons.length - 8}</span>
+              )}
+            </div>
+          </foreignObject>
+        );
+      })()}
       {/* 엣지 연결 핸들 — 4방향 (호버/선택 시 표시) */}
       {(hover || selected) && edgeHandles.map((h) => (
         <g key={h.id} data-handle="out">
