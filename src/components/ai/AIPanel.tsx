@@ -159,7 +159,7 @@ export function AIPanel() {
 
       <section className="ai-section">
         <h4>② 비평 받기</h4>
-        <p className="ai-section-hint">Dan Taylor 10원칙으로 현재 컨셉을 평가합니다.</p>
+        <p className="ai-section-hint">현재 컨셉을 평가합니다.</p>
         <button
           onClick={runCritique}
           disabled={busy !== null || !project.concept.theme}
