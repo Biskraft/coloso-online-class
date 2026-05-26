@@ -34,11 +34,12 @@ export interface BubbleNode {
   name: string;
   x: number;
   y: number;
-  size?: number;            // 1.0 기본, 0.6~2.5 권장 — 타입 기본 크기에 곱해짐
+  size?: number;            // 1.0 기본, 0.5~2.5 — 전체 크기
+  aspect?: number;          // 1.0 기본, 0.5~2.0 — 가로:세로 비율 (1보다 크면 가로 길게)
   notes: string;
-  icons: string[];          // 아이콘 키 배열 (예: 'chasm', 'dash_required')
-  mjPrompt?: string;        // 개별 노드 MJ 프롬프트
-  promotedFrom?: string;    // 출신 포스트잇 id
+  icons: string[];
+  mjPrompt?: string;
+  promotedFrom?: string;
 }
 
 export interface BubbleEdge {

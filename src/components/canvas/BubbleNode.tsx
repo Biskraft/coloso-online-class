@@ -18,8 +18,9 @@ export function BubbleNode({
 }: Props) {
   const s = NODE_STYLES[node.type];
   const size = node.size ?? 1;
-  const { rx, ry } = nodeRadii(node.type, size);
-  const paths = nodePaths({ cx: 0, cy: 0, type: node.type, size, rough, seed: node.id });
+  const aspect = node.aspect ?? 1;
+  const { rx, ry } = nodeRadii(node.type, size, aspect);
+  const paths = nodePaths({ cx: 0, cy: 0, type: node.type, size, aspect, rough, seed: node.id });
   const select = useProject((s) => s.select);
   const [hover, setHover] = useState(false);
 

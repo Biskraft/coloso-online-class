@@ -12,11 +12,18 @@ interface Props {
   onSelect: (id: string) => void;
 }
 
+/**
+ * 두께 위계 — 레퍼런스 이미지처럼 극적으로 차등화
+ *   open    4.8px  굵은 검정          (Immediate Adjacency, 가장 강한 시각 무게)
+ *   locked  2.8px  점선 오크르         (Lock/Key, 의미 있는 차단)
+ *   oneway  1.8px  얇은 회색 (화살표)   (One-Way Drop, 정보성 화살표)
+ *   ability 2.2px  점선 벽돌           (Ability Gate)
+ */
 export const EDGE_STYLE: Record<EdgeType, { stroke: string; dash?: string; width: number; label: string }> = {
-  open:    { stroke: '#1A1814',  width: 3.0,                  label: '통로' },
-  locked:  { stroke: '#8F7740',  width: 2.6, dash: '7 4',     label: '잠금' },
-  oneway:  { stroke: '#5A5247',  width: 2.4,                  label: '일방' },
-  ability: { stroke: '#8A3D3A',  width: 2.6, dash: '3 4',     label: '능력' },
+  open:    { stroke: '#1A1814',  width: 4.8,                  label: '통로' },
+  locked:  { stroke: '#8F7740',  width: 2.8, dash: '8 5',     label: '잠금' },
+  oneway:  { stroke: '#6B6760',  width: 1.8,                  label: '일방' },
+  ability: { stroke: '#8A3D3A',  width: 2.2, dash: '3 4',     label: '능력' },
 };
 
 /** 타원 경계 위의 점 계산 — 중심에서 방향 (dirX, dirY)로 나가는 광선의 타원 교점 */
@@ -41,8 +48,8 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
     const ux = dx / len;
     const uy = dy / len;
 
-    const fr = nodeRadii(from.type, from.size ?? 1);
-    const tr = nodeRadii(to.type, to.size ?? 1);
+    const fr = nodeRadii(from.type, from.size ?? 1, from.aspect ?? 1);
+    const tr = nodeRadii(to.type, to.size ?? 1, to.aspect ?? 1);
 
     const fromEdge = ellipseBoundary(from.x, from.y, fr.rx, fr.ry, dx, dy);
     const toEdge = ellipseBoundary(to.x, to.y, tr.rx, tr.ry, -dx, -dy);
@@ -59,21 +66,21 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
   }, [from.x, from.y, to.x, to.y, from.type, from.size, to.type, to.size]);
 
   const paths = useMemo(() => {
-    // 선은 항상 단일 패스 — 2중 스트로크는 산만함
-    // rough 모드에서도 자연스러운 휨·떨림만 단일 패스로 표현
+    // 단일 패스 — 두께가 다양해서 2중 스트로크 불필요
+    // rough 모드: 강한 떨림 + 자연스러운 휨
     return roughLine(startX, startY, endX, endY, {
       seed: edge.id,
-      roughness: rough ? 0.9 : 0,
-      bowing:    rough ? 0.55 : 0.20,
+      roughness: rough ? 2.2 : 0,
+      bowing:    rough ? 1.1 : 0.25,
       passes:    1,
     });
   }, [startX, startY, endX, endY, edge.id, rough]);
 
-  // 화살표는 종착점에 정확히 위치
+  // 화살표 — 엣지 두께에 비례, 단 너무 작거나 크지 않게 클램프
   const arrowTip = { x: endX, y: endY };
-  const arrowSize = 7;
+  const arrowSize = Math.max(7, Math.min(13, style.width * 2.4));
   const arrowPoints =
-    `${-arrowSize},${-arrowSize * 0.6} ${arrowSize * 0.4},0 ${-arrowSize},${arrowSize * 0.6}`;
+    `${-arrowSize},${-arrowSize * 0.55} ${arrowSize * 0.4},0 ${-arrowSize},${arrowSize * 0.55}`;
 
   const showArrow = edge.type === 'oneway' || edge.type === 'ability' || edge.type === 'locked';
 

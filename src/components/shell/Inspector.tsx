@@ -58,6 +58,13 @@ export function Inspector() {
   );
 }
 
+function aspectLabel(a: number, circleA: number): string {
+  if (Math.abs(a - circleA) < 0.04) return '원형';
+  if (Math.abs(a - 1) < 0.04) return '기본';
+  if (a > 1) return `가로 ${a.toFixed(2)}×`;
+  return `세로 ${(1 / a).toFixed(2)}×`;
+}
+
 function EmptyInspector() {
   return (
     <div className="ins-empty">
@@ -75,7 +82,13 @@ function NodeInspector({ node }: { node: BubbleNode }) {
   const updateNode = useProject((s) => s.updateNode);
   const removeNode = useProject((s) => s.removeNode);
   const resizeNode = useProject((s) => s.resizeNode);
+  const setNodeAspect = useProject((s) => s.setNodeAspect);
   const size = node.size ?? 1;
+  const aspect = node.aspect ?? 1;
+  // 원형으로 만드는 aspect 계산 — 타입 기본 rx/ry로부터 역산
+  const baseStyle = NODE_STYLES[node.type];
+  const circleAspect = Math.sqrt(baseStyle.ry / baseStyle.rx);
+
   return (
     <div className="ins-section">
       <div className="ins-section-head">
@@ -100,11 +113,45 @@ function NodeInspector({ node }: { node: BubbleNode }) {
             onChange={(e) => resizeNode(node.id, parseFloat(e.target.value))}
             className="ins-size-slider"
           />
+          <button onClick={() => resizeNode(node.id, 1)} className="ins-size-reset" title="기본 크기로">↻</button>
+        </div>
+      </label>
+
+      <label className="ins-field">
+        <span>형태 · {aspectLabel(aspect, circleAspect)}</span>
+        <div className="ins-size-row">
+          <input
+            type="range"
+            min="0.4"
+            max="2.5"
+            step="0.05"
+            value={aspect}
+            onChange={(e) => setNodeAspect(node.id, parseFloat(e.target.value))}
+            className="ins-size-slider"
+          />
+          <button onClick={() => setNodeAspect(node.id, 1)} className="ins-size-reset" title="기본 비율로">↻</button>
+        </div>
+        <div className="ins-aspect-presets">
           <button
-            onClick={() => resizeNode(node.id, 1)}
-            className="ins-size-reset"
-            title="기본 크기로"
-          >↻</button>
+            onClick={() => setNodeAspect(node.id, 0.6)}
+            className={Math.abs(aspect - 0.6) < 0.05 ? 'is-active' : ''}
+            title="세로 타원"
+          >▌세로</button>
+          <button
+            onClick={() => setNodeAspect(node.id, circleAspect)}
+            className={Math.abs(aspect - circleAspect) < 0.05 ? 'is-active' : ''}
+            title="원형"
+          >◯ 원형</button>
+          <button
+            onClick={() => setNodeAspect(node.id, 1)}
+            className={Math.abs(aspect - 1) < 0.05 ? 'is-active' : ''}
+            title="타입 기본 비율"
+          >◌ 기본</button>
+          <button
+            onClick={() => setNodeAspect(node.id, 1.7)}
+            className={Math.abs(aspect - 1.7) < 0.05 ? 'is-active' : ''}
+            title="가로 타원"
+          >▬가로</button>
         </div>
       </label>
 

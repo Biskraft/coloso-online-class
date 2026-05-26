@@ -89,23 +89,32 @@ export interface NodeShapeOpts {
   cy: number;
   type: NodeType;
   size?: number;
+  aspect?: number;
   rough: boolean;
   seed: string;
 }
 
-/** 노드의 실제(스케일 적용) 반지름 — 핸들·엣지 위치 계산용 */
-export function nodeRadii(type: NodeType, size = 1): { rx: number; ry: number } {
+/**
+ * 노드의 실제(스케일·형태 적용) 반지름
+ * aspect:
+ *   1.0 → 타입 기본 비율 그대로
+ *   > 1 → 더 가로로 (rx 증가, ry 감소)
+ *   < 1 → 더 세로로 (rx 감소, ry 증가)
+ * 면적은 size로만 결정 (sqrt 양방향 보정으로 aspect는 비율만 변경)
+ */
+export function nodeRadii(type: NodeType, size = 1, aspect = 1): { rx: number; ry: number } {
   const s = NODE_STYLES[type];
-  return { rx: s.rx * size, ry: s.ry * size };
+  const a = Math.sqrt(aspect);
+  return { rx: s.rx * size * a, ry: s.ry * size / a };
 }
 
 /** 노드 path 배열 — clean 모드는 1개, rough 모드는 2개 (겹친 스트로크) */
 export function nodePaths(o: NodeShapeOpts): string[] {
-  const { rx, ry } = nodeRadii(o.type, o.size ?? 1);
+  const { rx, ry } = nodeRadii(o.type, o.size ?? 1, o.aspect ?? 1);
   if (o.rough) {
     return roughEllipse(o.cx, o.cy, rx, ry, {
       seed: o.seed,
-      roughness: 1.0,
+      roughness: 1.4,
       passes: 2,
     });
   }

@@ -14,7 +14,7 @@ export function Minimap({ nodes, viewBox }: Props) {
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const n of nodes) {
-    const r = nodeRadii(n.type, n.size ?? 1);
+    const r = nodeRadii(n.type, n.size ?? 1, n.aspect ?? 1);
     minX = Math.min(minX, n.x - r.rx);
     minY = Math.min(minY, n.y - r.ry);
     maxX = Math.max(maxX, n.x + r.rx);
@@ -39,7 +39,7 @@ export function Minimap({ nodes, viewBox }: Props) {
       />
       {nodes.map((n) => {
         const s = NODE_STYLES[n.type];
-        const r = nodeRadii(n.type, n.size ?? 1);
+        const r = nodeRadii(n.type, n.size ?? 1, n.aspect ?? 1);
         return (
           <ellipse
             key={n.id}

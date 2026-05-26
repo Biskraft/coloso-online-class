@@ -18,7 +18,7 @@ export function autoLayout(
   g.setDefaultEdgeLabel(() => ({}));
 
   nodes.forEach((n) => {
-    const r = nodeRadii(n.type, n.size ?? 1);
+    const r = nodeRadii(n.type, n.size ?? 1, n.aspect ?? 1);
     g.setNode(n.id, { width: r.rx * 2 + 20, height: r.ry * 2 + 20 });
   });
   edges.forEach((e) => {
