@@ -40,6 +40,8 @@ interface ProjectStore {
   updatePostit: (id: string, patch: Partial<Postit>) => void;
   removePostit: (id: string) => void;
   movePostit: (id: string, x: number, y: number) => void;
+  clearAllPostits: () => void;
+  promoteAllPostits: (originX: number, originY: number) => number;
 
   // 노드
   addNode: (n: Partial<BubbleNode> & { x: number; y: number }) => string;
@@ -242,6 +244,45 @@ export const useProject = create<ProjectStore>()(
         ...p,
         postits: p.postits.map((x2) => x2.id === id ? { ...x2, x, y } : x2),
       })),
+
+      clearAllPostits: () => updateCurrent(set, (p) => ({
+        ...p,
+        postits: [],
+      })),
+
+      promoteAllPostits: (originX, originY) => {
+        const st = get();
+        const targets = st.project.postits.filter((p) => !p.promoted);
+        if (targets.length === 0) return 0;
+        const cols = Math.max(3, Math.ceil(Math.sqrt(targets.length * 1.4)));
+        const cellW = 200, cellH = 170;
+        const newNodes: BubbleNode[] = [];
+        const newIds: string[] = [];
+        targets.forEach((pst, i) => {
+          const id = uid('nd');
+          newIds.push(id);
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          newNodes.push({
+            id,
+            type: 'room',
+            name: pst.text.slice(0, 30) || '새 방',
+            notes: pst.text,
+            icons: [],
+            x: originX + col * cellW,
+            y: originY + row * cellH,
+            promotedFrom: pst.id,
+          });
+        });
+        updateCurrent(set, (p) => ({
+          ...p,
+          nodes: [...p.nodes, ...newNodes],
+          postits: p.postits.map((x) =>
+            targets.find((t) => t.id === x.id) ? { ...x, promoted: true } : x
+          ),
+        }));
+        return targets.length;
+      },
 
       addNode: (n) => {
         const id = uid('nd');
