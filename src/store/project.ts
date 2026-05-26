@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import { temporal } from 'zundo';
 import type {
   Project, Postit, BubbleNode, BubbleEdge, Decoration, DecorationKind,
   Concept, PostitColor, NodeType, EdgeType, CanvasView,
@@ -92,8 +93,29 @@ const updateCurrent = (
   });
 };
 
+/* drag/resize 같은 연속 변경에서 무한 snapshot 회피용 throttle */
+function throttle<T extends (...args: any[]) => void>(fn: T, ms: number): T {
+  let last = 0;
+  let pending: number | undefined;
+  return ((...args: any[]) => {
+    const now = Date.now();
+    const delta = now - last;
+    if (delta >= ms) {
+      last = now;
+      fn(...args);
+    } else {
+      if (pending) window.clearTimeout(pending);
+      pending = window.setTimeout(() => {
+        last = Date.now();
+        fn(...args);
+      }, ms - delta);
+    }
+  }) as T;
+}
+
 export const useProject = create<ProjectStore>()(
-  subscribeWithSelector((set, get) => {
+  temporal(
+    subscribeWithSelector((set, get) => {
     // 워크스페이스 복원 시도. 없으면 새 빈 프로젝트
     const restored = loadWorkspace();
     let initialProjects: Project[];
@@ -403,8 +425,29 @@ export const useProject = create<ProjectStore>()(
         ),
       })),
     };
-  })
+    }),
+    {
+      // undo/redo 추적 대상은 projects + currentId만 (selection은 메모리 한정)
+      partialize: (state) => ({
+        projects: state.projects,
+        currentId: state.currentId,
+        project: state.project,
+      }) as any,
+      limit: 80,
+      // 드래그/리사이즈 연속 변경에서 매 frame snapshot 회피
+      handleSet: (handleSet) =>
+        throttle((pastState: any) => handleSet(pastState), 250),
+      equality: (a: any, b: any) =>
+        a.projects === b.projects && a.currentId === b.currentId,
+    },
+  ),
 );
+
+/* undo/redo 외부 사용 헬퍼 */
+export const undoProject = () => useProject.temporal.getState().undo();
+export const redoProject = () => useProject.temporal.getState().redo();
+export const canUndoCount = () => useProject.temporal.getState().pastStates.length;
+export const canRedoCount = () => useProject.temporal.getState().futureStates.length;
 
 /* ─── 자동저장 — projects 또는 currentId 변화 시 디바운스 저장 ─── */
 let saveTimer: number | undefined;

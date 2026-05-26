@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useProject } from '../../store/project';
+import { useProject, undoProject, redoProject } from '../../store/project';
 import { downloadJSON, uploadJSON } from '../../store/persistence';
 import './ConceptBar.css';
 
@@ -16,8 +16,21 @@ export function ConceptBar() {
 
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [historySize, setHistorySize] = useState({ past: 0, future: 0 });
 
   // 외부 클릭은 invisible backdrop이 처리
+
+  // undo/redo 가능 카운트 구독
+  useEffect(() => {
+    const t = useProject.temporal as any;
+    const update = () => {
+      const s = t.getState();
+      setHistorySize({ past: s.pastStates.length, future: s.futureStates.length });
+    };
+    update();
+    const unsub = t.subscribe(update);
+    return () => unsub();
+  }, []);
 
   const updatedLabel = formatRelative(updatedAt);
 
@@ -78,6 +91,20 @@ export function ConceptBar() {
       </div>
 
       <div className="cb-actions">
+        <button
+          className="cb-undo"
+          onClick={() => undoProject()}
+          disabled={historySize.past === 0}
+          title={`되돌리기 (Ctrl+Z) · ${historySize.past}`}
+          aria-label="되돌리기"
+        >↶</button>
+        <button
+          className="cb-undo"
+          onClick={() => redoProject()}
+          disabled={historySize.future === 0}
+          title={`다시 실행 (Ctrl+Shift+Z) · ${historySize.future}`}
+          aria-label="다시 실행"
+        >↷</button>
         <button
           className="cb-btn"
           onClick={() => setMenuOpen(!menuOpen)}

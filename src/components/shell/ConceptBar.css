@@ -127,6 +127,33 @@
 .cb-actions {
   position: relative;
   z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cb-undo {
+  width: 30px;
+  height: 30px;
+  font-size: 16px;
+  color: var(--ink-800);
+  background: var(--paper-50);
+  border: 1px solid rgba(26, 24, 20, 0.20);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-paper-1);
+  transition: all var(--dur-fast) var(--ease-out);
+  line-height: 1;
+}
+
+.cb-undo:hover:not(:disabled) {
+  background: var(--paper-200);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-paper-2);
+}
+
+.cb-undo:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .cb-btn {
