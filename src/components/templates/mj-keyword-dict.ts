@@ -4,6 +4,7 @@
    ───────────────────────────────────────────────────────── */
 
 import type { Project, BubbleNode, NodeType } from '../../types';
+// BubbleNode type is used in helpers; no value import needed.
 
 /* ── 노드 타입별 영문 묘사 ── */
 const NODE_TYPE_DESC: Record<NodeType, string> = {
@@ -105,32 +106,136 @@ const INTENT_KEYWORDS: Array<{ match: RegExp; keywords: string[] }> = [
   { match: /보스|boss|클라이맥스|climax/i, keywords: ['climactic boss encounter', 'epic confrontation'] },
 ];
 
-/* ── 마스터 프롬프트 생성 — 출력은 100% 영어 ── */
+/* ── 마스터 프롬프트 생성 — 전체 게임 무드보드/Key Art 톤 ──
+   설계 원칙:
+   - 특정 룸·노드를 그리지 않는다. 게임 *전체*의 분위기·팔레트·시대·라이팅을 묘사.
+   - 컨셉 + 모든 노드의 icon·type을 *집계*해서 공통 요소 추출.
+   - 페이싱 분석으로 dominant mood 결정.
+   - "Key art / promotional poster / mood board" 톤으로 마무리.
+*/
 export function buildMasterMjPrompt(p: Project, paramsOverride?: string): string {
-  const { concept } = p;
-  const text = `${concept.theme} ${concept.intent} ${concept.pacing} ${concept.coreMechanic}`;
-  const themeKw = collectKw(text, THEME_KEYWORDS);
+  const { concept, nodes } = p;
+  const fullText = `${concept.theme} ${concept.intent} ${concept.pacing} ${concept.coreMechanic}`;
+  const themeKw = collectKw(fullText, THEME_KEYWORDS);
   const moodKw = collectKw(concept.pacing + ' ' + concept.intent, MOOD_KEYWORDS);
-  const intentKw = collectKw(text, INTENT_KEYWORDS);
+  const intentKw = collectKw(fullText, INTENT_KEYWORDS);
 
-  // 한국어가 섞일 가능성을 차단 — theme 문자열은 사용하지 않고 키워드만 사용
-  const subject = themeKw.length > 0
-    ? themeKw[0]
-    : 'a video game level concept';
-  const themeRest = themeKw.slice(1).join(', ');
+  // ─── 노드 집계 ─── 가장 자주 등장하는 환경/오브젝트 요소
+  const iconCount = new Map<string, number>();
+  nodes.forEach((n) => n.icons.forEach((k) => {
+    iconCount.set(k, (iconCount.get(k) ?? 0) + 1);
+  }));
+  const topIconKeys = [...iconCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([k]) => ICON_TO_KW[k])
+    .filter(Boolean);
 
-  // theme이 영문이면 (사용자가 영어로 적었으면) 살릴 수 있게 — 그렇지 않으면 무시
-  const englishTheme = concept.theme && !hasKorean(concept.theme) ? concept.theme : '';
+  // ─── 페이싱 dominant mood 결정 ───
+  const pacingMood = decidePacingMood(concept.pacing, nodes);
+
+  // ─── 노드 타입 비중으로 장르 톤 ───
+  const typeMix = nodeTypeMix(nodes);
+
+  // 영문 theme 살리되 너무 길면 첫 30자만
+  const englishTheme = concept.theme && !hasKorean(concept.theme)
+    ? concept.theme.slice(0, 60)
+    : '';
+
+  // ─── 합성 ───
+  // 1) Establishing subject — 환경의 *전체* (한 룸이 아님)
+  const establishing = englishTheme
+    ? `a cohesive game world set in ${englishTheme}`
+    : themeKw.length > 0
+      ? `a cohesive game world featuring ${themeKw.slice(0, 2).join(' and ')}`
+      : 'a cohesive game world atmosphere';
+
+  // 2) 핵심 환경 요소들 (theme + 빈번 아이콘)
+  const worldElements = [...themeKw.slice(0, 3), ...topIconKeys].slice(0, 5);
+
+  // 3) 게임플레이 의도 (서브텍스트로)
+  const playfeel = intentKw.length > 0
+    ? `gameplay feeling: ${intentKw.slice(0, 2).join(', ')}`
+    : '';
+
+  // 4) 분위기 / 라이팅 / 팔레트
+  const atmosphere = pacingMood.atmosphere;
+  const lighting = pacingMood.lighting;
+  const palette = derivePalette(themeKw, typeMix);
+
+  // 5) Key art 톤 고정 마감
+  const keyArtMarker = 'key art mood board for a video game, promotional poster composition, painterly digital illustration, cinematic wide shot, layered atmospheric depth, masterful color theory';
 
   const parts = [
-    englishTheme || subject,
-    themeRest,
-    intentKw.join(', '),
+    establishing,
+    worldElements.join(', '),
+    playfeel,
+    atmosphere,
+    lighting,
+    palette,
     moodKw.join(', '),
-    'concept art for a video game level, painterly digital illustration, cinematic composition, rich material detail, atmospheric depth',
+    keyArtMarker,
   ].filter(Boolean);
 
   return sanitizeEnglishPrompt(`${parts.join(', ')} ${paramsOverride ?? DEFAULT_MJ_PARAMS}`);
+}
+
+/* 페이싱 텍스트와 노드 타입 비중으로 atmosphere/lighting 결정 */
+function decidePacingMood(pacingText: string, nodes: BubbleNode[]): { atmosphere: string; lighting: string } {
+  const bossCount = nodes.filter((n) => n.type === 'boss').length;
+  const saveCount = nodes.filter((n) => n.type === 'save').length;
+  const vistaCount = nodes.filter((n) => n.type === 'vista').length;
+  const t = pacingText.toLowerCase();
+
+  // climax 우세 — 에픽 무드
+  if (bossCount >= 2 || /클라이맥스|climax|결전|epic/i.test(t)) {
+    return {
+      atmosphere: 'epic dramatic atmosphere with rising tension across the world',
+      lighting: 'cinematic high-contrast lighting, god rays, deep shadows',
+    };
+  }
+  // vista 많음 — 평온/탐험
+  if (vistaCount >= 2 || /탐험|exploration|평온|벨앙스/i.test(t)) {
+    return {
+      atmosphere: 'contemplative serene atmosphere with awe-inspiring scale',
+      lighting: 'soft volumetric light, golden hour ambient glow',
+    };
+  }
+  // save·rest 많음 — 차분
+  if (saveCount >= 2 || /휴식|차분|stillness/i.test(t)) {
+    return {
+      atmosphere: 'restful intimate atmosphere with quiet beats',
+      lighting: 'warm ambient lantern light, soft shadows',
+    };
+  }
+  // 기본 — 균형 잡힌 모험 톤
+  return {
+    atmosphere: 'balanced adventurous atmosphere with shifting moods',
+    lighting: 'naturalistic cinematic lighting with subtle gradients',
+  };
+}
+
+function nodeTypeMix(nodes: BubbleNode[]): Record<string, number> {
+  const m: Record<string, number> = {};
+  nodes.forEach((n) => { m[n.type] = (m[n.type] ?? 0) + 1; });
+  return m;
+}
+
+function derivePalette(themeKw: string[], typeMix: Record<string, number>): string {
+  const t = themeKw.join(' ').toLowerCase();
+  // 환경 기반 팔레트 힌트
+  if (/lava|volcano|ember|molten/.test(t)) return 'molten orange and obsidian black palette with ember accents';
+  if (/snow|arctic|ice|frozen|blizzard/.test(t)) return 'icy blue and stark white palette with cold cyan accents';
+  if (/jungle|forest|moss/.test(t)) return 'deep green and weathered stone palette with shafts of warm light';
+  if (/desert|dune|sandstone/.test(t)) return 'golden amber and rust palette with mirage haze';
+  if (/space|station|metal|sci.?fi|cyber/.test(t)) return 'cool steel blue and neon accent palette';
+  if (/cathedral|gothic|stone/.test(t)) return 'cold stone gray and stained-glass jewel-tone palette';
+  if (/manor|victorian|mansion/.test(t)) return 'sepia and oak wood palette with candlelight gold';
+  if (/water|ocean|flooded|coral/.test(t)) return 'submerged teal and bone-white palette with refracted caustics';
+  // 노드 타입 비중 기반 폴백
+  if ((typeMix.boss ?? 0) >= 2) return 'high-contrast crimson and charcoal palette';
+  if ((typeMix.vista ?? 0) >= 2) return 'wide naturalistic palette with horizon depth';
+  return 'cohesive painterly palette with harmonized accent colors';
 }
 
 /* ── 노드별 프롬프트 — 출력은 100% 영어 ── */
