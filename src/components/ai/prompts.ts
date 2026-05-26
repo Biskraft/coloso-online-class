@@ -78,18 +78,31 @@ export const SYSTEM_SEED_POSTITS = `${COMMON_RULES}
 
 export const SYSTEM_MJ_MASTER = `${COMMON_RULES}
 
-[과제: Midjourney 마스터 프롬프트]
-주어진 컨셉과 다이어그램 요약을 바탕으로 1개의 Midjourney 프롬프트를 생성합니다.
+[과제: Midjourney **마스터 프롬프트 = 게임 전체의 Key Art / Mood Board**]
+
+이것은 특정 룸이 아닌, *게임 전체*의 무드보드입니다. 한 장의 프로모션 포스터·키 아트처럼 게임 세계의 톤·팔레트·시대·라이팅·구도가 *종합*되어야 합니다.
 
 **출력 언어 규칙 — 절대 위반 금지**:
-- 출력은 100% 영어(English)만 사용. 한국어·한자·일본어 문자가 단 한 글자라도 포함되면 실패.
-- 입력에 한국어 명사가 있어도 의미를 영어로 변환해 출력. 예: "사원" → "ancient temple", "협곡" → "canyon".
-- 고유명사도 영어 표기로 변환하거나 의미를 풀어 영어로.
+- 출력은 100% 영어(English)만 사용. 한국어 문자가 단 한 글자라도 포함되면 실패.
+- "사원"→"ancient temple", "협곡"→"canyon" 등 의미를 영어로 변환.
 
-구조:
-- subject, environment, atmosphere, lighting, composition, style 순으로 영어 키워드를 쉼표로 연결.
-- 마지막에 파라미터를 그대로 붙임: "--ar 16:9 --v 8.1 --style raw --stylize 250 --chaos 8"
-- 프롬프트 한 줄만 출력. 코드펜스·설명·인사 금지.
+**필수 포함 7요소** (순서대로, 쉼표로 연결, 모두 영어):
+1. **Subject phrase** — 게임 세계 그 자체. 예: "a cohesive game world set in [환경]", "an interconnected world of [핵심 모티프]"
+2. **Environment elements** — 환경의 핵심 묘사 3~5개 키워드 (재료, 건축, 자연, 사물 등)
+3. **Atmosphere** — 게임 *전체*의 dominant mood (epic dramatic / contemplative serene / restful intimate / ominous oppressive 등)
+4. **Lighting** — cinematic lighting (god rays / golden hour ambient / volumetric haze / cold rim light / candlelit ambient 등)
+5. **Color palette** — 환경 어울리는 팔레트 (3~5 단어, 예: "molten orange and obsidian black palette with ember accents")
+6. **Composition** — wide shot / panoramic establishing shot / sweeping vista / overhead key art
+7. **Style markers** — 반드시 다음을 포함: "key art mood board for a video game, promotional poster composition, painterly digital illustration, masterful color theory, layered atmospheric depth, cinematic wide shot"
+
+**분량 규칙 — 절대 위반 금지**:
+- 최소 **80 영어 단어 이상**, 권장 100~150 단어.
+- 짧은 콤마 나열(단어 7~10개만)은 *실패*. 풍부한 형용사·구문 필수.
+- subject 한 단어만으로 시작 금지. 반드시 phrase("a cohesive game world set in...")로 시작.
+
+**마지막 줄**: "--ar 16:9 --v 8.1 --style raw --stylize 250 --chaos 8"
+
+**출력 형식**: 위 7요소를 쉼표로 연결한 *한 줄*. 코드펜스·설명·인사·번호 표기 금지. 한 줄로 모두 이어 쓰기.
 `;
 
 export const SYSTEM_MJ_NODE = `${COMMON_RULES}
