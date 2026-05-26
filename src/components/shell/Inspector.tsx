@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useProject } from '../../store/project';
-import type { NodeType, EdgeType, BubbleNode, BubbleEdge } from '../../types';
+import type { NodeType, EdgeType, BubbleNode, BubbleEdge, Decoration } from '../../types';
 import { NODE_STYLES } from '../canvas/node-shapes';
 import { EDGE_STYLE } from '../canvas/Edge';
 import { UsageMeter } from '../ai/UsageMeter';
@@ -27,6 +27,7 @@ export function Inspector() {
   const node = selection.kind === 'node' ? project.nodes.find((n) => n.id === selection.id) : null;
   const edge = selection.kind === 'edge' ? project.edges.find((e) => e.id === selection.id) : null;
   const postit = selection.kind === 'postit' ? project.postits.find((p) => p.id === selection.id) : null;
+  const deco = selection.kind === 'decoration' ? (project.decorations ?? []).find((d) => d.id === selection.id) : null;
 
   const [tab, setTab] = useState<'inspect' | 'ai' | 'export' | 'mj'>('inspect');
 
@@ -45,7 +46,8 @@ export function Inspector() {
             {node && <NodeInspector node={node} />}
             {edge && <EdgeInspector edge={edge} />}
             {postit && <PostitInspector postitId={postit.id} />}
-            {!node && !edge && !postit && <EmptyInspector />}
+            {deco && <DecorationInspector dec={deco} />}
+            {!node && !edge && !postit && !deco && <EmptyInspector />}
           </>
         )}
         {tab === 'mj' && <MjPanel nodeId={node?.id} />}
@@ -288,6 +290,39 @@ function PostitInspector({ postitId }: { postitId: string }) {
           </div>
         )}
       </label>
+    </div>
+  );
+}
+
+function DecorationInspector({ dec }: { dec: Decoration }) {
+  const updateDecoration = useProject((s) => s.updateDecoration);
+  const removeDecoration = useProject((s) => s.removeDecoration);
+  const label = dec.kind === 'arrow' ? '화살표' : dec.kind === 'ellipse' ? '회색 타원' : '텍스트';
+  return (
+    <div className="ins-section">
+      <div className="ins-section-head">
+        <span className="caption">데코 · {label}</span>
+        <button className="ins-del" onClick={() => removeDecoration(dec.id)}>삭제</button>
+      </div>
+      {dec.kind === 'text' && (
+        <label className="ins-field">
+          <span>텍스트</span>
+          <textarea
+            rows={3}
+            value={dec.text ?? ''}
+            onChange={(e) => updateDecoration(dec.id, { text: e.target.value })}
+            placeholder="여기에 입력…"
+          />
+        </label>
+      )}
+      <p className="ins-hint-mini">
+        {dec.kind === 'arrow'
+          ? '양 끝점을 드래그해 방향 조정'
+          : dec.kind === 'ellipse'
+          ? 'SE 핸들로 크기 조절'
+          : '더블클릭으로 내용 편집 / SE 핸들로 박스 크기 조절'}
+        {' · '}Delete 키로 삭제
+      </p>
     </div>
   );
 }

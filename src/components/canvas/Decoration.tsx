@@ -56,10 +56,11 @@ function ArrowDeco({
 
   return (
     <g data-decoration={dec.id} className="deco">
-      {/* 클릭 영역 */}
+      {/* 클릭 영역 — 본선과 화살촉까지 모두 덮음 */}
       <line
         x1={x1} y1={y1} x2={x2} y2={y2}
-        stroke="transparent" strokeWidth={lineWidth + 12}
+        stroke="transparent" strokeWidth={Math.max(lineWidth + 16, arrowSize + 12)}
+        strokeLinecap="round"
         onPointerDown={onSelect}
       />
       {/* 본선 — 화살촉 base까지만, 둥근 cap이 화살촉 안에 묻힘 */}
@@ -119,7 +120,9 @@ function EllipseDeco({
       className="deco"
       onPointerDown={onSelect}
     >
-      <ellipse cx="0" cy="0" rx={rx} ry={ry} fill="#C9C4B8" stroke="none" />
+      {/* 호버/클릭 hit 영역 확장 — 본체보다 10px 넓게 */}
+      <ellipse cx="0" cy="0" rx={rx + 10} ry={ry + 10} fill="transparent" stroke="none" />
+      <ellipse cx="0" cy="0" rx={rx} ry={ry} fill="#C9C4B8" stroke="none" pointerEvents="none" />
       {selected && (
         <ellipse
           cx="0" cy="0" rx={rx + 6} ry={ry + 6}
@@ -185,6 +188,12 @@ function TextDeco({
         setEditing(true);
       }}
     >
+      {/* 호버/클릭 hit 영역 — 텍스트 박스 전체를 덮음 */}
+      <rect
+        x={-w / 2 - 8} y={-h / 2 - 8}
+        width={w + 16} height={h + 16}
+        fill="transparent" stroke="none"
+      />
       <foreignObject x={-w / 2} y={-h / 2} width={w} height={h} style={{ overflow: 'visible' }}>
         {editing ? (
           <textarea

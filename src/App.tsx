@@ -26,6 +26,7 @@ export function App() {
         if (sel.kind === 'node') st.removeNode(sel.id);
         else if (sel.kind === 'edge') st.removeEdge(sel.id);
         else if (sel.kind === 'postit') st.removePostit(sel.id);
+        else if (sel.kind === 'decoration') st.removeDecoration(sel.id);
       }
     };
     window.addEventListener('keydown', onKey);
