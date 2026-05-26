@@ -81,10 +81,10 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
     });
   }, [startX, startY, endX, endY, edge.id, rough]);
 
-  // 화살표 — 엣지 두께에 비례, 너무 작거나 크지 않게 클램프
-  const arrowSize = Math.max(7, Math.min(13, style.width * 2.4));
+  // 화살표 — 항상 크고 선명하게. 검정 외곽선으로 색깔과 무관히 또렷.
+  const arrowSize = Math.max(13, Math.min(18, style.width * 3.0));
   const arrowPoints =
-    `${-arrowSize},${-arrowSize * 0.55} ${arrowSize * 0.4},0 ${-arrowSize},${arrowSize * 0.55}`;
+    `${-arrowSize},${-arrowSize * 0.6} ${arrowSize * 0.45},0 ${-arrowSize},${arrowSize * 0.6}`;
 
   const showArrow = edge.type === 'oneway' || edge.type === 'ability' || edge.type === 'locked';
 
@@ -117,6 +117,10 @@ export function Edge({ edge, from, to, rough, selected, onSelect }: Props) {
         <polygon
           points={arrowPoints}
           fill={style.stroke}
+          stroke="#1A1814"
+          strokeWidth="1.4"
+          strokeLinejoin="round"
+          strokeLinecap="round"
           transform={`translate(${arrowX} ${arrowY}) rotate(${angle})`}
         />
       )}
