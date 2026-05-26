@@ -4,19 +4,22 @@ import {
   TEMPLATES, MECHANIC_GROUPS, MECHANIC_LABEL,
   type ConceptTemplate, type Mechanic,
 } from './concept-library';
+import { SCENARIO_TEMPLATES } from './scenario-library';
 import './TemplatePicker.css';
 
 export function TemplatePicker({ onClose }: { onClose: () => void }) {
   const [activeMechanic, setActiveMechanic] = useState<Mechanic | 'all'>('all');
+  const [library, setLibrary] = useState<'scenario' | 'quick'>('scenario');
   const [preview, setPreview] = useState<ConceptTemplate | null>(null);
   const setConcept = useProject((s) => s.setConcept);
   const addPostit = useProject((s) => s.addPostit);
   const updatePostit = useProject((s) => s.updatePostit);
   const setName = useProject((s) => s.setName);
 
+  const source = library === 'scenario' ? SCENARIO_TEMPLATES : TEMPLATES;
   const items = useMemo(() =>
-    activeMechanic === 'all' ? TEMPLATES : TEMPLATES.filter((t) => t.mechanic === activeMechanic),
-  [activeMechanic]);
+    activeMechanic === 'all' ? source : source.filter((t) => t.mechanic === activeMechanic),
+  [activeMechanic, source]);
 
   const apply = (tpl: ConceptTemplate) => {
     setName(tpl.title);
@@ -31,6 +34,20 @@ export function TemplatePicker({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="tp">
+      <div className="tp-library-tabs">
+        <button
+          className={`tp-lib-tab ${library === 'scenario' ? 'is-active' : ''}`}
+          onClick={() => setLibrary('scenario')}
+        >
+          전문가 시나리오 ({SCENARIO_TEMPLATES.length})
+        </button>
+        <button
+          className={`tp-lib-tab ${library === 'quick' ? 'is-active' : ''}`}
+          onClick={() => setLibrary('quick')}
+        >
+          퀵 컨셉 ({TEMPLATES.length})
+        </button>
+      </div>
       <div className="tp-tabs">
         <button
           className={`tp-tab ${activeMechanic === 'all' ? 'is-active' : ''}`}

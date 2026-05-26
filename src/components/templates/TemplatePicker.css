@@ -6,6 +6,34 @@
   overflow-y: auto;
 }
 
+.tp-library-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--sp-2);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid rgba(26, 24, 20, 0.10);
+}
+
+.tp-lib-tab {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--ink-700);
+  background: var(--paper-100);
+  border: 1px solid rgba(26, 24, 20, 0.16);
+  border-radius: var(--r-md);
+  transition: all var(--dur-fast) var(--ease-out);
+}
+
+.tp-lib-tab:hover { background: var(--paper-200); }
+
+.tp-lib-tab.is-active {
+  background: var(--ink-900);
+  color: var(--paper-50);
+  border-color: var(--ink-900);
+}
+
 .tp-tabs {
   display: flex;
   flex-wrap: wrap;

@@ -93,6 +93,12 @@ export function ConceptBar() {
       <div className="cb-actions">
         <button
           className="cb-undo"
+          onClick={() => (window as any).__openLibrary?.()}
+          title="참고 라이브러리 (시나리오·가이드)"
+          aria-label="라이브러리"
+        >📚</button>
+        <button
+          className="cb-undo"
           onClick={() => undoProject()}
           disabled={historySize.past === 0}
           title={`되돌리기 (Ctrl+Z) · ${historySize.past}`}

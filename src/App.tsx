@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ProjectTabs } from './components/shell/ProjectTabs';
 import { ConceptBar } from './components/shell/ConceptBar';
 import { PostitPad } from './components/shell/PostitPad';
 import { CanvasShell } from './components/shell/CanvasShell';
 import { Inspector } from './components/shell/Inspector';
+import { LibraryPanel } from './components/shell/LibraryPanel';
 import { OnboardingWizard } from './components/ai/OnboardingWizard';
 import { useProject, undoProject, redoProject } from './store/project';
 import './App.css';
@@ -11,6 +12,13 @@ import './App.css';
 export function App() {
   const ai = useProject((s) => s.project.ai);
   const seen = localStorage.getItem('bubble-atelier::onboarded');
+  const [libOpen, setLibOpen] = useState(false);
+
+  // ConceptBar의 라이브러리 버튼이 호출
+  useEffect(() => {
+    (window as any).__openLibrary = () => setLibOpen(true);
+    return () => { (window as any).__openLibrary = undefined; };
+  }, []);
 
   useEffect(() => {
     // 키보드: Escape, Delete, Ctrl+Z/Y
@@ -57,6 +65,7 @@ export function App() {
         <Inspector />
       </div>
       {needsOnboarding && <OnboardingWizard />}
+      {libOpen && <LibraryPanel onClose={() => setLibOpen(false)} />}
     </div>
   );
 }
