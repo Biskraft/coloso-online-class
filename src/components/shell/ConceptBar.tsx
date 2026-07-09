@@ -15,6 +15,7 @@ export function ConceptBar() {
   const enterTopdown = useProject((s) => s.enterTopdown);
   const enterMassing = useProject((s) => s.enterMassing);
   const enterFlow = useProject((s) => s.enterFlow);
+  const enterPacing = useProject((s) => s.enterPacing);
   const reset = useProject((s) => s.reset);
 
   const [editing, setEditing] = useState(false);
@@ -92,6 +93,12 @@ export function ConceptBar() {
           onClick={enterFlow}
           title="흐름 — 푸시·풀 흐름 실험실 (week2 push & pull)"
         >⇝ 흐름</button>
+        <button
+          className="cb-btn"
+          data-testid="enter-pacing"
+          onClick={enterPacing}
+          title="페이싱 — 감정 곡선 에디터 (50·51강)"
+        >⌇ 페이싱</button>
         <button
           className="cb-undo"
           onClick={() => (window as any).__openLibrary?.()}
