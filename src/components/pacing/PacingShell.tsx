@@ -6,7 +6,8 @@ import { usePacing, undoPacing, redoPacing } from '../../store/pacing';
 import { downloadJSON } from '../../store/persistence';
 import { PacingCanvas, PacingMapPanel, segColor, type PacTool } from './PacingCanvas';
 import { PacingSide } from './PacingSide';
-import type { PacingDoc, Project } from '../../types';
+import { PACING_PRESETS } from './pacing-presets';
+import type { Project } from '../../types';
 import '../topdown/TopdownShell.css';
 import './PacingShell.css';
 
@@ -14,9 +15,6 @@ import './PacingShell.css';
    페이싱 곡선 에디터 셸 — FlowShell 골격 승계 (50·51강)
    탭 · 도구 · undo · 맵 불러오기/내보내기(자리) · 캔버스+사이드 · 상태바
    ───────────────────────────────────────────────────────── */
-
-/** 학습 프리셋 — Task 12에서 `pacing-presets.ts`로 채워질 자리. 지금은 빈 배열이라 셀렉트는 빈 상태. */
-const PACING_PRESETS: { id: string; name: string; lesson: string; seed: () => Partial<PacingDoc> }[] = [];
 
 const TOOLS: { id: PacTool; label: string; key: string; title: string }[] = [
   { id: 'select',    label: '선택', key: 'V', title: '선택 (V) — 점 이동·삭제는 도구와 무관하게 항상 가능' },
