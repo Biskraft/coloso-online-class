@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type * as React from 'react';
+import { toPng } from 'html-to-image';
 import { useProject } from '../../store/project';
 import { usePacing, undoPacing, redoPacing } from '../../store/pacing';
+import { downloadJSON } from '../../store/persistence';
 import { PacingCanvas, PacingMapPanel, segColor, type PacTool } from './PacingCanvas';
 import { PacingSide } from './PacingSide';
-import type { PacingDoc } from '../../types';
+import type { PacingDoc, Project } from '../../types';
 import '../topdown/TopdownShell.css';
 import './PacingShell.css';
 
@@ -44,6 +46,9 @@ export function PacingShell() {
   /** 핀이 붙을 구간 — 곡선 하단 구간 이름 클릭 또는 사이드 목록 클릭으로 갱신 */
   const [selSeg, setSelSeg] = useState<string | null>(null);
   const mapInputRef = useRef<HTMLInputElement | null>(null);
+  /** 곡선 + 맵 패널을 함께 담는 내보내기 컨테이너 — PNG는 이 범위 그대로 캡처 */
+  const exportRef = useRef<HTMLDivElement | null>(null);
+  const [exportBusy, setExportBusy] = useState(false);
 
   useEffect(() => {
     const t = usePacing.temporal as any;
@@ -95,6 +100,34 @@ export function PacingShell() {
     const n = target ? target.points.length + target.markers.length + target.pins.length : 0;
     if (n > 0 && !window.confirm(`'${name}'에 점·마커·핀 ${n}개가 있습니다. 삭제할까요?`)) return;
     removeDoc(id);
+  };
+
+  /** PNG 내보내기 — 곡선 캔버스 + 맵 패널을 나란히 담은 .pac-export 컨테이너를 화면 배치 그대로 캡처 (과제 제출 서식) */
+  const handleExportPNG = async () => {
+    if (!exportRef.current) return;
+    setExportBusy(true);
+    try {
+      const paper100 = getComputedStyle(document.body).getPropertyValue('--paper-100')?.trim();
+      const dataUrl = await toPng(exportRef.current, {
+        pixelRatio: 2,
+        backgroundColor: paper100 || '#fff',
+      });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `pacing-${doc.name}.png`;
+      a.click();
+      setStatus('PNG 저장 완료');
+    } catch (e) {
+      setStatus(`PNG 내보내기 실패: ${(e as Error).message ?? e}`);
+    } finally {
+      setExportBusy(false);
+    }
+  };
+
+  /** JSON 내보내기 — 현재 페이싱 문서를 원본 그대로 저장 (백업·공유용) */
+  const handleExportJSON = () => {
+    downloadJSON(doc as unknown as Project, `${doc.name}.json`);
+    setStatus('JSON 저장 완료');
   };
 
   /** 맵 불러오기 — FileReader로 dataURL 변환 후 Image로 원본 w/h 측정, setMap에 반영 */
@@ -237,17 +270,23 @@ export function PacingShell() {
           </select>
         </div>
 
-        <div className="td-group">
+        <div className="td-group" aria-label="내보내기">
           <button
             className="td-btn"
-            onClick={() => { /* TODO(Task 11): 곡선/맵 내보내기(PNG 등) 연결 */ }}
-            title="내보내기 — 곡선과 맵을 이미지로 저장 (연결 예정)"
-          >내보내기</button>
+            onClick={handleExportPNG}
+            disabled={exportBusy}
+            title="PNG 내보내기 — 곡선과 맵을 화면 배치 그대로 이미지 한 장으로 저장 (과제 제출용)"
+          >{exportBusy ? '저장 중…' : 'PNG 내보내기'}</button>
+          <button
+            className="td-btn"
+            onClick={handleExportJSON}
+            title="JSON 내보내기 — 현재 페이싱 문서 원본 저장 (백업·공유용)"
+          >JSON 내보내기</button>
         </div>
       </div>
 
-      {/* ── 곡선 캔버스 + 맵 패널 (세로로 쌓임) ── */}
-      <div className="pac-body">
+      {/* ── 곡선 캔버스 + 맵 패널 (세로로 쌓임) — PNG 내보내기 캡처 범위 ── */}
+      <div className="pac-body pac-export" ref={exportRef}>
         <div className="pac-main">
           <PacingCanvas
             doc={doc}
