@@ -9,9 +9,11 @@ import { OnboardingWizard } from './components/ai/OnboardingWizard';
 import { TopdownShell } from './components/topdown/TopdownShell';
 import { MassingShell } from './components/massing/MassingShell';
 import { FlowShell } from './components/flow/FlowShell';
+import { PacingShell } from './components/pacing/PacingShell';
 import { useProject, undoProject, redoProject } from './store/project';
 import { undoMassing, redoMassing } from './store/massing';
 import { undoFlow, redoFlow } from './store/flow';
+import { undoPacing, redoPacing } from './store/pacing';
 import './App.css';
 
 export function App() {
@@ -52,6 +54,10 @@ export function App() {
           st.exitFlow();
           return;
         }
+        if (st.mode === 'pacing') {
+          st.exitPacing();
+          return;
+        }
         st.select({ kind: 'none' });
         setFocusMode(false);
       }
@@ -79,8 +85,8 @@ export function App() {
         st.selectAll();
       }
       // Undo/Redo — 매싱·흐름 모드는 각자의 실습 스토어를 되돌린다
-      const undoFn = st.mode === 'massing' ? undoMassing : st.mode === 'flow' ? undoFlow : undoProject;
-      const redoFn = st.mode === 'massing' ? redoMassing : st.mode === 'flow' ? redoFlow : redoProject;
+      const undoFn = st.mode === 'massing' ? undoMassing : st.mode === 'flow' ? undoFlow : st.mode === 'pacing' ? undoPacing : undoProject;
+      const redoFn = st.mode === 'massing' ? redoMassing : st.mode === 'flow' ? redoFlow : st.mode === 'pacing' ? redoPacing : redoProject;
       if (meta && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
         if (e.shiftKey) redoFn();
@@ -120,6 +126,14 @@ export function App() {
     return (
       <div className="app-shell is-massing paper-grain">
         <FlowShell />
+      </div>
+    );
+  }
+
+  if (mode === 'pacing') {
+    return (
+      <div className="app-shell is-massing paper-grain">
+        <PacingShell />
       </div>
     );
   }

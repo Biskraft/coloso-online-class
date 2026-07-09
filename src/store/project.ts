@@ -104,8 +104,8 @@ interface ProjectStore {
   applyAutoLayoutPositions: (positions: Record<string, { x: number; y: number }>) => void;
 
   // ── 탑다운 (평면도 모드) ──
-  /** 'bubble' = 버블, 'topdown' = 평면도, 'massing' = 매싱, 'flow' = 흐름 실험실. undo 추적 대상 아님 */
-  mode: 'bubble' | 'topdown' | 'massing' | 'flow';
+  /** 'bubble' = 버블, 'topdown' = 평면도, 'massing' = 매싱, 'flow' = 흐름 실험실, 'pacing' = 페이싱 곡선. undo 추적 대상 아님 */
+  mode: 'bubble' | 'topdown' | 'massing' | 'flow' | 'pacing';
   activeTopdownId: string | null;
   /** 평면도 진입 — 문서가 없으면 하나 만들고 진입 */
   enterTopdown: () => void;
@@ -167,6 +167,9 @@ interface ProjectStore {
   // ── 흐름 실험실 (모드 전환만 — 데이터는 store/flow.ts에 분리) ──
   enterFlow: () => void;
   exitFlow: () => void;
+  // ── 페이싱 곡선 (모드 전환만 — 데이터는 store/pacing.ts에 분리) ──
+  enterPacing: () => void;
+  exitPacing: () => void;
 }
 
 const newId = () => uid('prj');
@@ -972,6 +975,10 @@ export const useProject = create<ProjectStore>()(
       // ── 흐름 실험실 — 모드 전환만 (데이터는 별도 스토어) ──
       enterFlow: () => set({ mode: 'flow' }),
       exitFlow: () => set({ mode: 'bubble' }),
+
+      // ── 페이싱 곡선 — 모드 전환만 (데이터는 별도 스토어) ──
+      enterPacing: () => set({ mode: 'pacing' }),
+      exitPacing: () => set({ mode: 'bubble' }),
 
       addMany: (tdId, items) => updateCurrent(set, (p) => ({
         ...p,
