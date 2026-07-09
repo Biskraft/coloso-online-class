@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type * as React from 'react';
 import { useProject } from '../../store/project';
 import { usePacing, undoPacing, redoPacing } from '../../store/pacing';
-import { PacingCanvas, type PacTool } from './PacingCanvas';
+import { PacingCanvas, PacingMapPanel, segColor, type PacTool } from './PacingCanvas';
 import type { PacingDoc } from '../../types';
 import '../topdown/TopdownShell.css';
 import './PacingShell.css';
@@ -32,12 +33,16 @@ export function PacingShell() {
   const removeDoc = usePacing((s) => s.removeDoc);
   const renameDoc = usePacing((s) => s.renameDoc);
   const addSegment = usePacing((s) => s.addSegment);
+  const setMap = usePacing((s) => s.setMap);
 
   const [tool, setTool] = useState<PacTool>('select');
   const [status, setStatus] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [history, setHistory] = useState({ past: 0, future: 0 });
+  /** 핀이 붙을 구간 — 곡선 하단 구간 이름 클릭 또는 사이드 목록 클릭으로 갱신 */
+  const [selSeg, setSelSeg] = useState<string | null>(null);
+  const mapInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const t = usePacing.temporal as any;
@@ -64,6 +69,12 @@ export function PacingShell() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  /** 문서 전환·구간 삭제 등으로 selSeg가 무효화되면 첫 구간으로 되돌림 */
+  useEffect(() => {
+    if (!doc) return;
+    if (!doc.segments.some((s) => s.id === selSeg)) setSelSeg(doc.segments[0]?.id ?? null);
+  }, [doc?.id, doc?.segments, selSeg]);
+
   if (!doc) {
     return (
       <div className="td-shell td-shell-empty">
@@ -83,6 +94,23 @@ export function PacingShell() {
     const n = target ? target.points.length + target.markers.length + target.pins.length : 0;
     if (n > 0 && !window.confirm(`'${name}'에 점·마커·핀 ${n}개가 있습니다. 삭제할까요?`)) return;
     removeDoc(id);
+  };
+
+  /** 맵 불러오기 — FileReader로 dataURL 변환 후 Image로 원본 w/h 측정, setMap에 반영 */
+  const handleMapFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // 같은 파일 재선택 허용
+    if (!file) return;
+    const fr = new FileReader();
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        setMap(doc.id, { dataUrl: img.src, w: img.naturalWidth, h: img.naturalHeight });
+        setStatus('맵 불러옴');
+      };
+      img.src = fr.result as string;
+    };
+    fr.readAsDataURL(file);
   };
 
   return (
@@ -171,10 +199,17 @@ export function PacingShell() {
       {/* ── 상단 바 2행 — 맵 불러오기/내보내기(자리) · 학습 프리셋 ── */}
       <div className="td-bar td-bar-sub">
         <div className="td-group" aria-label="맵">
+          <input
+            ref={mapInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handleMapFile}
+          />
           <button
             className="td-btn"
-            onClick={() => { /* TODO(Task 9): 맵 이미지 불러오기 → setMap 연결 */ }}
-            title="맵 불러오기 — 이 구간의 배경 맵 이미지를 불러온다 (연결 예정)"
+            onClick={() => mapInputRef.current?.click()}
+            title="맵 불러오기 — 이 페이싱 문서의 배경 맵 이미지를 불러온다"
           >맵 불러오기</button>
         </div>
 
@@ -210,18 +245,67 @@ export function PacingShell() {
         </div>
       </div>
 
-      {/* ── 캔버스 + 사이드 ── */}
-      <div className="pac-main">
-        <PacingCanvas doc={doc} tool={tool} mapMode={tool === 'pin'} onStatus={setStatus} />
-        <div className="pac-side">선택 구간 없음</div>
+      {/* ── 곡선 캔버스 + 맵 패널 (세로로 쌓임) ── */}
+      <div className="pac-body">
+        <div className="pac-main">
+          <PacingCanvas
+            doc={doc}
+            tool={tool}
+            mapMode={tool === 'pin'}
+            selSeg={selSeg}
+            onSelectSeg={setSelSeg}
+            onStatus={setStatus}
+          />
+          <div className="pac-side">
+            <div className="pac-side-title">구간 — 클릭해 핀 대상 선택</div>
+            <ul className="pac-seg-list">
+              {doc.segments.map((s) => (
+                <li
+                  key={s.id}
+                  className={`pac-seg-item ${s.id === selSeg ? 'is-active' : ''}`}
+                  onClick={() => setSelSeg(s.id)}
+                >
+                  <span className="pac-seg-swatch" style={{ background: segColor(doc, s.id) }} />
+                  {s.name}
+                </li>
+              ))}
+            </ul>
+            <p className="pac-side-hint">핀(N) 도구로 아래 맵을 클릭하면 선택된 구간에 핀이 붙습니다.</p>
+          </div>
+        </div>
+
+        <div className="pac-map">
+          <div className="pac-main">
+            <PacingMapPanel doc={doc} tool={tool} selSeg={selSeg} onStatus={setStatus} />
+            <div className="pac-side">
+              <div className="pac-side-title">핀 {doc.pins.length}</div>
+              {doc.pins.length === 0 ? (
+                <p className="pac-side-hint">아직 배치된 핀이 없습니다.</p>
+              ) : (
+                <ul className="pac-pin-list">
+                  {doc.pins.map((p) => {
+                    const seg = doc.segments.find((s) => s.id === p.segId);
+                    return (
+                      <li key={p.id} className="pac-pin-item">
+                        <span className="pac-seg-swatch" style={{ background: segColor(doc, p.segId) }} />
+                        {seg?.name ?? '구간 없음'}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <p className="pac-side-hint">핀 드래그: 이동 · Alt+클릭/우클릭: 삭제</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── 상태바 ── */}
       <div className="td-status">
         <span className="td-status-doc">{doc.name}</span>
-        <span>구간 {doc.segments.length} · 점 {doc.points.length}</span>
+        <span>구간 {doc.segments.length} · 점 {doc.points.length} · 핀 {doc.pins.length}</span>
         <span className="td-status-hover">{status}</span>
-        <span className="td-status-hint">점 도구: 빈 곳 클릭해 추가 · 점 드래그: 이동 · Alt+클릭/우클릭: 삭제 · 구간+: 가로축 구간 추가</span>
+        <span className="td-status-hint">점 도구: 빈 곳 클릭해 추가 · 점 드래그: 이동 · Alt+클릭/우클릭: 삭제 · 구간+: 가로축 구간 추가 · 핀 도구: 구간 선택 후 맵 클릭해 추가</span>
       </div>
     </div>
   );
