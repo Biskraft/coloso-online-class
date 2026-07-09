@@ -56,3 +56,46 @@ test('프리셋 → 조령관 곡선 시드 + 내보내기 버튼', async ({ pag
   await expect(page.getByRole('button', { name: 'PNG 내보내기' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'JSON 내보내기' })).toBeVisible();
 });
+
+test('구간 선택 → 이름 편집 → 삭제', async ({ page }) => {
+  await page.getByTestId('enter-pacing').click();
+  await expect(page.getByTestId('pacing-shell')).toBeVisible();
+
+  // 구간 추가 — 기본 '구간 1' + 새 '구간 2'
+  await page.getByRole('button', { name: '구간+' }).click();
+
+  // 곡선 하단 구간 라벨 클릭으로 '구간 2' 선택
+  await page.getByText('구간 2', { exact: true }).click();
+
+  // 사이드 이름 입력 변경 → blur로 커밋
+  const nameInput = page.getByTestId('pac-seg-name');
+  await expect(nameInput).toHaveValue('구간 2');
+  await nameInput.fill('보스룸');
+  await nameInput.blur();
+
+  await page.waitForTimeout(800);
+  let ws = await readPacing(page);
+  let doc = ws.docs[0];
+  const target = doc.segments.find((s: any) => s.name === '보스룸');
+  expect(target).toBeTruthy();
+
+  // 폭(체류 비중) 조정
+  const widthInput = page.getByTestId('pac-seg-width');
+  await widthInput.fill('2.5');
+  await widthInput.blur();
+
+  await page.waitForTimeout(800);
+  ws = await readPacing(page);
+  doc = ws.docs[0];
+  expect(doc.segments.find((s: any) => s.name === '보스룸').width).toBe(2.5);
+
+  const beforeCount = doc.segments.length;
+
+  // 구간 삭제 — 개수 감소 확인
+  await page.getByTestId('pac-seg-remove').click();
+  await page.waitForTimeout(800);
+  ws = await readPacing(page);
+  doc = ws.docs[0];
+  expect(doc.segments.length).toBe(beforeCount - 1);
+  expect(doc.segments.find((s: any) => s.name === '보스룸')).toBeFalsy();
+});
