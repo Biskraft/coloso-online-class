@@ -19,7 +19,7 @@ interface PacingStore {
   setSegmentWidth: (docId: string, segId: string, width: number) => void;
   removeSegment: (docId: string, segId: string) => void;
   addPoint: (docId: string, p: PacingPoint) => void;
-  movePoint: (docId: string, id: string, t: number, tension: number) => void;
+  movePoint: (docId: string, id: string, segId: string, t: number, tension: number) => void;
   removePoint: (docId: string, id: string) => void;
   addMarker: (docId: string, m: PacingMarker) => void;
   moveMarker: (docId: string, id: string, at: number, tension: number) => void;
@@ -83,7 +83,7 @@ export const usePacing = create<PacingStore>()(
           pins: d.pins.filter((p) => p.segId !== segId),
         })),
         addPoint: (docId, p) => mutDoc(docId, (d) => ({ ...d, points: [...d.points, p] })),
-        movePoint: (docId, id, t, tension) => mutDoc(docId, (d) => ({ ...d, points: d.points.map((p) => p.id === id ? { ...p, t: clamp01(t), tension: clampT(tension) } : p) })),
+        movePoint: (docId, id, segId, t, tension) => mutDoc(docId, (d) => ({ ...d, points: d.points.map((p) => p.id === id ? { ...p, segId, t: clamp01(t), tension: clampT(tension) } : p) })),
         removePoint: (docId, id) => mutDoc(docId, (d) => ({ ...d, points: d.points.filter((p) => p.id !== id) })),
         addMarker: (docId, m) => mutDoc(docId, (d) => ({ ...d, markers: [...d.markers, m] })),
         moveMarker: (docId, id, at, tension) => mutDoc(docId, (d) => ({ ...d, markers: d.markers.map((m) => m.id === id ? { ...m, at: clamp01(at), tension: clampT(tension) } : m) })),

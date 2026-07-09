@@ -94,8 +94,8 @@ export function PacingCanvas({ doc, tool, mapMode: _mapMode, onStatus }: PacingC
     const svg = svgRef.current;
     if (!svg) return;
     const { progress, tension } = localToPT(svg, e);
-    const { t } = resolveSeg(progress, doc.segments);
-    movePoint(doc.id, id, t, tension);
+    const { segId, t } = resolveSeg(progress, doc.segments);
+    movePoint(doc.id, id, segId, t, tension);
   };
 
   const endDrag = (e: React.PointerEvent<SVGSVGElement>) => {
