@@ -1,0 +1,70 @@
+/* ─────────────────────────────────────────────────────────
+   페이싱 곡선 에디터 셸 — 2단 레이아웃(곡선 / 맵), TopdownShell 토큰 승계
+   ───────────────────────────────────────────────────────── */
+
+.pac-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  background: var(--paper-100);
+}
+
+/* 캔버스 + 우측 사이드 가로 배치 — 곡선 영역·맵 영역 둘 다 이 구조를 공유 */
+.pac-main {
+  display: flex;
+  gap: var(--sp-3);
+  min-height: 0;
+}
+
+.pac-canvas {
+  flex: 1;
+  min-width: 0;
+  border: var(--line-thin);
+  border-radius: var(--r-md);
+  background: var(--paper-50);
+  box-shadow: var(--shadow-paper-1);
+  overflow: hidden;
+}
+
+.pac-canvas svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  touch-action: none;
+  user-select: none;
+}
+
+.pac-side {
+  width: var(--shell-inspector-w);
+  flex: none;
+  border: var(--line-thin);
+  border-radius: var(--r-md);
+  background: var(--paper-50);
+  box-shadow: var(--shadow-paper-1);
+  overflow-y: auto;
+  font-family: var(--font-body);
+  color: var(--ink-700);
+}
+
+/* 맵 패널 영역 — 곡선 영역과 세로로 쌓임(.pac-body), 내부는 .pac-main과 동일 구조 */
+.pac-map {
+  min-height: 160px;
+}
+
+.pac-tick-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  fill: var(--ink-500);
+}
+
+.pac-seg-label {
+  font-family: var(--font-body);
+  font-size: var(--fs-xs);
+  fill: var(--ink-600);
+}
+
+.pac-point circle:last-of-type {
+  cursor: grab;
+}
