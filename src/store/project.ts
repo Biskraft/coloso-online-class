@@ -3,9 +3,11 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { temporal } from 'zundo';
 import type {
   Project, Postit, BubbleNode, BubbleEdge, Decoration, DecorationKind,
-  Concept, PostitColor, NodeType, EdgeType, CanvasView,
+  Concept, PostitColor, NodeType, EdgeType, CanvasView, ImageItem,
+  TopdownDoc, GeoShape, StructShape, ZoneObj, DoorObj, StairObj, TextObj, MarkerObj, GeoPoly,
 } from '../types';
-import { emptyProject } from '../types';
+import { emptyProject, emptyTopdown, migrateProject } from '../types';
+import { distToPolyEdge } from '../components/topdown/topdown-utils';
 import { uid, today } from '../utils/id';
 import { loadWorkspace, saveWorkspace } from './persistence';
 
@@ -19,7 +21,7 @@ interface ProjectStore {
   projects: Project[];
   currentId: string;
   project: Project;   // 현재 활성 프로젝트와 동기화된 참조
-  selection: { kind: 'none' } | { kind: 'node'; id: string } | { kind: 'edge'; id: string } | { kind: 'postit'; id: string } | { kind: 'decoration'; id: string };
+  selection: { kind: 'none' } | { kind: 'node'; id: string } | { kind: 'edge'; id: string } | { kind: 'postit'; id: string } | { kind: 'decoration'; id: string } | { kind: 'image'; id: string };
   /** 다중 선택 — 노드와 데코 id를 통합으로 저장 */
   groupSelection: string[];
 
@@ -42,6 +44,7 @@ interface ProjectStore {
   updatePostit: (id: string, patch: Partial<Postit>) => void;
   removePostit: (id: string) => void;
   movePostit: (id: string, x: number, y: number) => void;
+  reorderPostits: (orderedIds: string[]) => void;
   clearAllPostits: () => void;
   promoteAllPostits: (originX: number, originY: number) => number;
 
@@ -56,6 +59,13 @@ interface ProjectStore {
   sendNodeToBack: (id: string) => void;
   promotePostit: (postitId: string, x: number, y: number, type?: NodeType) => string;
 
+  // 이미지 (자유 배치 참조 이미지)
+  addImage: (x: number, y: number, src: string, width: number, height: number) => string;
+  updateImage: (id: string, patch: Partial<ImageItem>) => void;
+  removeImage: (id: string) => void;
+  moveImage: (id: string, x: number, y: number) => void;
+  resizeImage: (id: string, width: number, height: number) => void;
+
   // 데코 요소 (자유 배치 화살표/타원/텍스트)
   addDecoration: (kind: DecorationKind, x: number, y: number) => string;
   updateDecoration: (id: string, patch: Partial<Decoration>) => void;
@@ -69,6 +79,11 @@ interface ProjectStore {
 
   // 뷰
   setView: (patch: Partial<CanvasView>) => void;
+
+  // 테마 (학생별 색감 차별화)
+  setHueShift: (deg: number) => void;
+  setSatScale: (scale: number) => void;
+  resetTheme: () => void;
 
   // 선택
   select: (s: ProjectStore['selection']) => void;
@@ -87,6 +102,71 @@ interface ProjectStore {
 
   // 마이그레이션 헬퍼
   applyAutoLayoutPositions: (positions: Record<string, { x: number; y: number }>) => void;
+
+  // ── 탑다운 (평면도 모드) ──
+  /** 'bubble' = 버블, 'topdown' = 평면도, 'massing' = 매싱, 'flow' = 흐름 실험실. undo 추적 대상 아님 */
+  mode: 'bubble' | 'topdown' | 'massing' | 'flow';
+  activeTopdownId: string | null;
+  /** 평면도 진입 — 문서가 없으면 하나 만들고 진입 */
+  enterTopdown: () => void;
+  exitTopdown: () => void;
+  setActiveTopdown: (id: string) => void;
+  addTopdown: (name?: string) => string;
+  removeTopdown: (id: string) => void;
+  renameTopdown: (id: string, name: string) => void;
+  updateTopdown: (id: string, patch: Partial<TopdownDoc>) => void;
+  /** 도형 추가 (union/subtract) — 호출 1회 = undo 1단계 */
+  addGeo: (tdId: string, shape: GeoShape) => void;
+  /** 도형 삭제 */
+  removeGeo: (tdId: string, ids: string[]) => void;
+  /** 도형 이동 (그리드 단위 delta) */
+  translateGeo: (tdId: string, ids: string[], dx: number, dy: number) => void;
+  /** 내부 구조(벽·기둥·엄폐) 도형 */
+  addStruct: (tdId: string, shape: StructShape) => void;
+  removeStruct: (tdId: string, ids: string[]) => void;
+  translateStruct: (tdId: string, ids: string[], dx: number, dy: number) => void;
+  /** 구역 채움 (안전/위험 주석) */
+  addZone: (tdId: string, zone: ZoneObj) => void;
+  removeZone: (tdId: string, ids: string[]) => void;
+  translateZones: (tdId: string, ids: string[], dx: number, dy: number) => void;
+  /** 도형 폴리곤 교체 — 크기·회전 핸들 커밋. 부착 문 보정 포함, 호출 1회 = undo 1단계 */
+  transformShape: (tdId: string, payload: {
+    kind: 'geo' | 'struct' | 'zone';
+    id: string;
+    poly: GeoPoly;
+    /** 회전 핸들 커밋 시 새 방향 — 스케일은 생략(방향 유지) */
+    rot?: number;
+    doors?: { id: string; x: number; y: number; angle: number }[];
+  }) => void;
+  /** 문 배치 — 호출 1회 = undo 1단계 */
+  addDoor: (tdId: string, door: DoorObj) => void;
+  /** 문 삭제 */
+  removeDoor: (tdId: string, ids: string[]) => void;
+  /** 계단 배치 */
+  addStair: (tdId: string, stair: StairObj) => void;
+  removeStair: (tdId: string, ids: string[]) => void;
+  /** 텍스트 라벨 */
+  addText: (tdId: string, text: TextObj) => void;
+  updateText: (tdId: string, id: string, patch: Partial<TextObj>) => void;
+  removeText: (tdId: string, ids: string[]) => void;
+  /** 문/계단/텍스트 단일 오브젝트 이동 (그리드 단위 delta) */
+  translateObject: (tdId: string, id: string, dx: number, dy: number) => void;
+  /** 마커 (게임플레이·린치 배지) */
+  addMarker: (tdId: string, marker: MarkerObj) => void;
+  updateMarker: (tdId: string, id: string, patch: Partial<MarkerObj>) => void;
+  removeMarker: (tdId: string, ids: string[]) => void;
+  /** 일괄 추가 (붙여넣기) — 호출 1회 = undo 1단계 */
+  addMany: (tdId: string, items: {
+    geo?: GeoShape[]; struct?: StructShape[]; zones?: ZoneObj[]; doors?: DoorObj[];
+    stairs?: StairObj[]; texts?: TextObj[]; markers?: MarkerObj[];
+  }) => void;
+
+  // ── 매싱 스케처 (모드 전환만 — 데이터는 store/massing.ts에 분리) ──
+  enterMassing: () => void;
+  exitMassing: () => void;
+  // ── 흐름 실험실 (모드 전환만 — 데이터는 store/flow.ts에 분리) ──
+  enterFlow: () => void;
+  exitFlow: () => void;
 }
 
 const newId = () => uid('prj');
@@ -134,11 +214,8 @@ export const useProject = create<ProjectStore>()(
     let initialProjects: Project[];
     let initialCurrentId: string;
     if (restored && restored.projects.length > 0) {
-      // decorations 필드 마이그레이션 (이전 버전 호환)
-      initialProjects = restored.projects.map((p) => ({
-        ...p,
-        decorations: p.decorations ?? [],
-      }));
+      // v1 → v2(맵) 포함 필드 마이그레이션 (이전 버전 호환)
+      initialProjects = restored.projects.map(migrateProject);
       initialCurrentId = restored.projects.some((p) => p.id === restored.currentId)
         ? restored.currentId
         : initialProjects[0].id;
@@ -155,6 +232,8 @@ export const useProject = create<ProjectStore>()(
       project: initialActive,
       selection: { kind: 'none' },
       groupSelection: [],
+      mode: 'bubble' as const,
+      activeTopdownId: null,
 
       // ── 워크스페이스 ──
       newProject: (name = '새 레벨') => {
@@ -164,6 +243,8 @@ export const useProject = create<ProjectStore>()(
           currentId: np.id,
           project: np,
           selection: { kind: 'none' },
+          mode: 'bubble',
+          activeTopdownId: null,
         }));
         return np.id;
       },
@@ -172,7 +253,10 @@ export const useProject = create<ProjectStore>()(
         set((s) => {
           const target = s.projects.find((p) => p.id === id);
           if (!target) return {};
-          return { currentId: id, project: target, selection: { kind: 'none' } };
+          return {
+            currentId: id, project: target, selection: { kind: 'none' },
+            mode: 'bubble', activeTopdownId: null,
+          };
         });
       },
 
@@ -187,6 +271,8 @@ export const useProject = create<ProjectStore>()(
               currentId: fresh.id,
               project: fresh,
               selection: { kind: 'none' },
+              mode: 'bubble',
+              activeTopdownId: null,
             };
           }
           let nextId = s.currentId;
@@ -200,18 +286,21 @@ export const useProject = create<ProjectStore>()(
             currentId: nextId,
             project: nextProject,
             selection: { kind: 'none' },
+            ...(s.currentId === id ? { mode: 'bubble' as const, activeTopdownId: null } : {}),
           };
         });
       },
 
       importProject: (p) => {
         // 새 id 부여 (기존 id 충돌 방지)
-        const imported: Project = { ...p, id: newId() };
+        const imported: Project = { ...migrateProject(p), id: newId() };
         set((s) => ({
           projects: [...s.projects, imported],
           currentId: imported.id,
           project: imported,
           selection: { kind: 'none' },
+          mode: 'bubble',
+          activeTopdownId: null,
         }));
         return imported.id;
       },
@@ -221,8 +310,8 @@ export const useProject = create<ProjectStore>()(
 
       loadFromJSON: (p) => {
         // 현재 프로젝트를 통째로 교체 (id는 현재 것 유지)
-        updateCurrent(set, (cur) => ({ ...p, id: cur.id }));
-        set({ selection: { kind: 'none' } });
+        updateCurrent(set, (cur) => ({ ...migrateProject(p), id: cur.id }));
+        set({ selection: { kind: 'none' }, activeTopdownId: null });
       },
 
       reset: () => {
@@ -254,6 +343,15 @@ export const useProject = create<ProjectStore>()(
         ...p,
         postits: p.postits.map((x2) => x2.id === id ? { ...x2, x, y } : x2),
       })),
+
+      // 드래그 재정렬 — orderedIds 순서로 재배치. 목록에 없는(검색 필터 등) 항목은 뒤에 보존
+      reorderPostits: (orderedIds) => updateCurrent(set, (p) => {
+        const map = new Map(p.postits.map((x) => [x.id, x]));
+        const seen = new Set(orderedIds);
+        const next = orderedIds.map((id) => map.get(id)).filter(Boolean) as typeof p.postits;
+        for (const x of p.postits) if (!seen.has(x.id)) next.push(x);
+        return { ...p, postits: next };
+      }),
 
       clearAllPostits: () => updateCurrent(set, (p) => ({
         ...p,
@@ -409,6 +507,40 @@ export const useProject = create<ProjectStore>()(
         }));
       },
 
+      // ── 이미지 ──
+      addImage: (x, y, src, width, height) => {
+        const id = uid('img');
+        const image: ImageItem = { id, x, y, width, height, src, createdAt: Date.now() };
+        updateCurrent(set, (p) => ({ ...p, images: [...(p.images ?? []), image] }));
+        set({ selection: { kind: 'image', id } });
+        return id;
+      },
+
+      updateImage: (id, patch) => updateCurrent(set, (p) => ({
+        ...p,
+        images: (p.images ?? []).map((im) => im.id === id ? { ...im, ...patch } : im),
+      })),
+
+      removeImage: (id) => {
+        updateCurrent(set, (p) => ({
+          ...p,
+          images: (p.images ?? []).filter((im) => im.id !== id),
+        }));
+        set((s) => ({
+          selection: s.selection.kind === 'image' && s.selection.id === id ? { kind: 'none' } : s.selection,
+        }));
+      },
+
+      moveImage: (id, x, y) => updateCurrent(set, (p) => ({
+        ...p,
+        images: (p.images ?? []).map((im) => im.id === id ? { ...im, x, y } : im),
+      })),
+
+      resizeImage: (id, width, height) => updateCurrent(set, (p) => ({
+        ...p,
+        images: (p.images ?? []).map((im) => im.id === id ? { ...im, width, height } : im),
+      })),
+
       // ── 데코 요소 ──
       addDecoration: (kind, x, y) => {
         const id = uid('dec');
@@ -462,6 +594,24 @@ export const useProject = create<ProjectStore>()(
         ...p, view: { ...p.view, ...patch },
       })),
 
+      setHueShift: (deg) => updateCurrent(set, (p) => ({
+        ...p,
+        theme: {
+          hueShift: Math.max(-180, Math.min(180, Math.round(deg))),
+          satScale: p.theme?.satScale ?? 1,
+        },
+      })),
+      setSatScale: (scale) => updateCurrent(set, (p) => ({
+        ...p,
+        theme: {
+          hueShift: p.theme?.hueShift ?? 0,
+          satScale: Math.max(0, Math.min(2, Math.round(scale * 100) / 100)),
+        },
+      })),
+      resetTheme: () => updateCurrent(set, (p) => ({
+        ...p, theme: { hueShift: 0, satScale: 1 },
+      })),
+
       select: (sel) => set({ selection: sel, groupSelection: [] }),
 
       setGroupSelection: (ids) => set({
@@ -473,8 +623,9 @@ export const useProject = create<ProjectStore>()(
         const st = get();
         const nodeIds = st.project.nodes.map((n) => n.id);
         const decoIds = (st.project.decorations ?? []).map((d) => d.id);
+        const imgIds = (st.project.images ?? []).map((im) => im.id);
         set({
-          groupSelection: [...nodeIds, ...decoIds],
+          groupSelection: [...nodeIds, ...decoIds, ...imgIds],
           selection: { kind: 'none' },
         });
       },
@@ -497,6 +648,9 @@ export const useProject = create<ProjectStore>()(
             }
             return next;
           }),
+          images: (p.images ?? []).map((im) =>
+            idSet.has(im.id) ? { ...im, x: im.x + dx, y: im.y + dy } : im
+          ),
         }));
       },
 
@@ -509,6 +663,7 @@ export const useProject = create<ProjectStore>()(
           nodes: p.nodes.filter((n) => !idSet.has(n.id)),
           edges: p.edges.filter((e) => !idSet.has(e.from) && !idSet.has(e.to)),
           decorations: (p.decorations ?? []).filter((d) => !idSet.has(d.id)),
+          images: (p.images ?? []).filter((im) => !idSet.has(im.id)),
         }));
         set({ groupSelection: [], selection: { kind: 'none' } });
       },
@@ -540,6 +695,323 @@ export const useProject = create<ProjectStore>()(
           positions[n.id] ? { ...n, x: positions[n.id].x, y: positions[n.id].y } : n
         ),
       })),
+
+      // ── 탑다운 (평면도 모드) ──
+      enterTopdown: () => {
+        const st = get();
+        const tds = st.project.topdowns ?? [];
+        if (tds.length === 0) {
+          const id = st.addTopdown();
+          set({ mode: 'topdown', activeTopdownId: id });
+          return;
+        }
+        const active = tds.some((t) => t.id === st.activeTopdownId)
+          ? st.activeTopdownId
+          : tds[0].id;
+        set({ mode: 'topdown', activeTopdownId: active });
+      },
+
+      exitTopdown: () => set({ mode: 'bubble' }),
+
+      setActiveTopdown: (id) => {
+        const st = get();
+        if (!(st.project.topdowns ?? []).some((t) => t.id === id)) return;
+        set({ activeTopdownId: id });
+      },
+
+      addTopdown: (name) => {
+        const id = uid('td');
+        updateCurrent(set, (p) => {
+          const n = name ?? `평면도 ${(p.topdowns?.length ?? 0) + 1}`;
+          return { ...p, topdowns: [...(p.topdowns ?? []), emptyTopdown(id, n)] };
+        });
+        set({ activeTopdownId: id });
+        return id;
+      },
+
+      removeTopdown: (id) => {
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).filter((t) => t.id !== id),
+        }));
+        set((s) => {
+          if (s.activeTopdownId !== id) return {};
+          const rest = s.project.topdowns ?? [];
+          return { activeTopdownId: rest.length > 0 ? rest[0].id : null };
+        });
+      },
+
+      renameTopdown: (id, name) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) => (t.id === id ? { ...t, name } : t)),
+      })),
+
+      updateTopdown: (id, patch) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) => (t.id === id ? { ...t, ...patch } : t)),
+      })),
+
+      addGeo: (tdId, shape) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId ? { ...t, geo: [...t.geo, shape] } : t),
+      })),
+
+      removeGeo: (tdId, ids) => {
+        const idSet = new Set(ids);
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) =>
+            t.id === tdId ? { ...t, geo: t.geo.filter((g) => !idSet.has(g.id)) } : t),
+        }));
+      },
+
+      translateGeo: (tdId, ids, dx, dy) => {
+        if (dx === 0 && dy === 0) return;
+        const idSet = new Set(ids);
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) => {
+            if (t.id !== tdId) return t;
+            // 이동 도형의 변 위에 놓인 문은 같은 델타로 따라간다
+            const moved = t.geo.filter((g) => idSet.has(g.id));
+            const follows = (d: DoorObj) =>
+              moved.some((g) => distToPolyEdge(d.x, d.y, g.poly) <= 0.45);
+            return {
+              ...t,
+              geo: t.geo.map((g) =>
+                idSet.has(g.id)
+                  ? { ...g, poly: g.poly.map((ring) => ring.map(([x, y]) => [x + dx, y + dy])) }
+                  : g),
+              doors: (t.doors ?? []).map((d) =>
+                follows(d) ? { ...d, x: d.x + dx, y: d.y + dy } : d),
+            };
+          }),
+        }));
+      },
+
+      addStruct: (tdId, shape) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId ? { ...t, struct: [...(t.struct ?? []), shape] } : t),
+      })),
+
+      removeStruct: (tdId, ids) => {
+        const idSet = new Set(ids);
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) =>
+            t.id === tdId ? { ...t, struct: (t.struct ?? []).filter((g) => !idSet.has(g.id)) } : t),
+        }));
+      },
+
+      translateStruct: (tdId, ids, dx, dy) => {
+        if (dx === 0 && dy === 0) return;
+        const idSet = new Set(ids);
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) => {
+            if (t.id !== tdId) return t;
+            // 이동한 구조 벽 위의 문도 함께 (바닥 도형과 동일 규칙)
+            const moved = (t.struct ?? []).filter((g) => idSet.has(g.id));
+            const follows = (d: DoorObj) =>
+              moved.some((g) => distToPolyEdge(d.x, d.y, g.poly) <= 0.45);
+            return {
+              ...t,
+              struct: (t.struct ?? []).map((g) =>
+                idSet.has(g.id)
+                  ? { ...g, poly: g.poly.map((ring) => ring.map(([x, y]) => [x + dx, y + dy])) }
+                  : g),
+              doors: (t.doors ?? []).map((d) =>
+                follows(d) ? { ...d, x: d.x + dx, y: d.y + dy } : d),
+            };
+          }),
+        }));
+      },
+
+      addZone: (tdId, zone) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId ? { ...t, zones: [...(t.zones ?? []), zone] } : t),
+      })),
+
+      removeZone: (tdId, ids) => {
+        const idSet = new Set(ids);
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) =>
+            t.id === tdId ? { ...t, zones: (t.zones ?? []).filter((z) => !idSet.has(z.id)) } : t),
+        }));
+      },
+
+      translateZones: (tdId, ids, dx, dy) => {
+        if (dx === 0 && dy === 0) return;
+        const idSet = new Set(ids);
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) =>
+            t.id === tdId
+              ? {
+                  ...t,
+                  zones: (t.zones ?? []).map((z) =>
+                    idSet.has(z.id)
+                      ? { ...z, poly: z.poly.map((ring) => ring.map(([x, y]) => [x + dx, y + dy])) }
+                      : z),
+                }
+              : t),
+        }));
+      },
+
+      transformShape: (tdId, { kind, id, poly, rot, doors }) => {
+        const doorMap = new Map((doors ?? []).map((d) => [d.id, d]));
+        const patch = rot === undefined ? { poly } : { poly, rot };
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) => {
+            if (t.id !== tdId) return t;
+            return {
+              ...t,
+              geo: kind === 'geo' ? t.geo.map((g) => (g.id === id ? { ...g, ...patch } : g)) : t.geo,
+              struct: kind === 'struct'
+                ? (t.struct ?? []).map((g) => (g.id === id ? { ...g, ...patch } : g))
+                : t.struct,
+              zones: kind === 'zone'
+                ? (t.zones ?? []).map((z) => (z.id === id ? { ...z, ...patch } : z))
+                : t.zones,
+              doors: doorMap.size
+                ? (t.doors ?? []).map((d) => {
+                    const nd = doorMap.get(d.id);
+                    return nd ? { ...d, x: nd.x, y: nd.y, angle: nd.angle } : d;
+                  })
+                : t.doors,
+            };
+          }),
+        }));
+      },
+
+      addDoor: (tdId, door) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId ? { ...t, doors: [...(t.doors ?? []), door] } : t),
+      })),
+
+      removeDoor: (tdId, ids) => {
+        const idSet = new Set(ids);
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) =>
+            t.id === tdId ? { ...t, doors: (t.doors ?? []).filter((d) => !idSet.has(d.id)) } : t),
+        }));
+      },
+
+      addStair: (tdId, stair) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId ? { ...t, stairs: [...(t.stairs ?? []), stair] } : t),
+      })),
+
+      removeStair: (tdId, ids) => {
+        const idSet = new Set(ids);
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) =>
+            t.id === tdId ? { ...t, stairs: (t.stairs ?? []).filter((s) => !idSet.has(s.id)) } : t),
+        }));
+      },
+
+      addText: (tdId, text) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId ? { ...t, texts: [...(t.texts ?? []), text] } : t),
+      })),
+
+      updateText: (tdId, id, patch) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId
+            ? { ...t, texts: (t.texts ?? []).map((x) => (x.id === id ? { ...x, ...patch } : x)) }
+            : t),
+      })),
+
+      removeText: (tdId, ids) => {
+        const idSet = new Set(ids);
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) =>
+            t.id === tdId ? { ...t, texts: (t.texts ?? []).filter((x) => !idSet.has(x.id)) } : t),
+        }));
+      },
+
+      addMarker: (tdId, marker) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId ? { ...t, markers: [...(t.markers ?? []), marker] } : t),
+      })),
+
+      updateMarker: (tdId, id, patch) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId
+            ? { ...t, markers: (t.markers ?? []).map((m) => (m.id === id ? { ...m, ...patch } : m)) }
+            : t),
+      })),
+
+      removeMarker: (tdId, ids) => {
+        const idSet = new Set(ids);
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) =>
+            t.id === tdId ? { ...t, markers: (t.markers ?? []).filter((m) => !idSet.has(m.id)) } : t),
+        }));
+      },
+
+      // ── 매싱 스케처 — 모드 전환만 (데이터는 별도 스토어) ──
+      enterMassing: () => set({ mode: 'massing' }),
+      exitMassing: () => set({ mode: 'bubble' }),
+
+      // ── 흐름 실험실 — 모드 전환만 (데이터는 별도 스토어) ──
+      enterFlow: () => set({ mode: 'flow' }),
+      exitFlow: () => set({ mode: 'bubble' }),
+
+      addMany: (tdId, items) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId
+            ? {
+                ...t,
+                geo: [...t.geo, ...(items.geo ?? [])],
+                struct: [...(t.struct ?? []), ...(items.struct ?? [])],
+                zones: [...(t.zones ?? []), ...(items.zones ?? [])],
+                doors: [...(t.doors ?? []), ...(items.doors ?? [])],
+                stairs: [...(t.stairs ?? []), ...(items.stairs ?? [])],
+                texts: [...(t.texts ?? []), ...(items.texts ?? [])],
+                markers: [...(t.markers ?? []), ...(items.markers ?? [])],
+              }
+            : t),
+      })),
+
+      translateObject: (tdId, id, dx, dy) => {
+        if (dx === 0 && dy === 0) return;
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) =>
+            t.id === tdId
+              ? {
+                  ...t,
+                  doors: (t.doors ?? []).map((d) =>
+                    d.id === id ? { ...d, x: d.x + dx, y: d.y + dy } : d),
+                  stairs: (t.stairs ?? []).map((s) =>
+                    s.id === id
+                      ? { ...s, x1: s.x1 + dx, y1: s.y1 + dy, x2: s.x2 + dx, y2: s.y2 + dy }
+                      : s),
+                  texts: (t.texts ?? []).map((x) =>
+                    x.id === id ? { ...x, x: x.x + dx, y: x.y + dy } : x),
+                  markers: (t.markers ?? []).map((m) =>
+                    m.id === id ? { ...m, x: m.x + dx, y: m.y + dy } : m),
+                }
+              : t),
+        }));
+      },
     };
     }),
     {

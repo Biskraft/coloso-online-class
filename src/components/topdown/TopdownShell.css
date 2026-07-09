@@ -1,0 +1,253 @@
+/* ─────────────────────────────────────────────────────────
+   평면도 셸 — 종이 위 도구 막대, 버블 아틀리에 토큰 승계
+   ───────────────────────────────────────────────────────── */
+
+.td-shell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--paper-100);
+}
+
+.td-shell-empty {
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  color: var(--ink-500);
+  font-family: var(--font-body);
+}
+
+/* ── 상단 바 ── */
+
+.td-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: var(--line-thin);
+  background: var(--paper-50);
+  box-shadow: var(--shadow-paper-1);
+  flex-wrap: nowrap;       /* 줄바꿈 금지 — 캔버스 높이가 변하지 않게 */
+  overflow-x: auto;
+  z-index: 2;
+}
+
+/* 옵션 바 (2행) — 도구별 프리셋·스타일·내보내기. 항상 존재해 높이 고정 */
+.td-bar-sub {
+  padding-top: 3px;
+  padding-bottom: 3px;
+  min-height: 36px;
+  box-shadow: none;
+  background: var(--paper-100);
+}
+
+.td-spacer { flex: 1; }
+
+.td-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: var(--line-hair);
+  border-radius: var(--r-md);
+  background: var(--paper-100);
+}
+
+.td-btn {
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  color: var(--ink-700);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  padding: 4px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.td-btn:hover { background: var(--paper-200); }
+
+.td-btn.is-active {
+  background: var(--ink-900);
+  color: var(--paper-50);
+}
+
+.td-back {
+  font-weight: 600;
+  border: var(--line-thin);
+  background: var(--paper-100);
+}
+
+/* 질량 견본 — 칠해질 색을 그대로 보여줌 */
+.td-swatch::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  border-radius: 1px;
+  vertical-align: -1px;
+}
+.td-swatch-solid::before { background: var(--ink-800); }
+.td-swatch-low::before { background: var(--blueprint-soft); }
+
+.td-select {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-700);
+  background: var(--paper-50);
+  border: var(--line-thin);
+  border-radius: var(--r-sm);
+  padding: 3px 4px;
+}
+
+/* ── 평면도 탭 ── */
+
+.td-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 38vw;
+  overflow-x: auto;
+}
+
+.td-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  color: var(--ink-600);
+  border: var(--line-hair);
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  padding: 4px 8px;
+  cursor: pointer;
+  background: var(--paper-200);
+  white-space: nowrap;
+}
+
+.td-tab.is-active {
+  background: var(--paper-100);
+  color: var(--ink-900);
+  border-bottom-color: transparent;
+  font-weight: 700;
+}
+
+.td-tab input {
+  font: inherit;
+  width: 90px;
+  border: none;
+  outline: 1px solid var(--blueprint);
+  background: var(--paper-50);
+  padding: 0 2px;
+}
+
+.td-tab-close {
+  border: none;
+  background: none;
+  color: var(--ink-400);
+  cursor: pointer;
+  font-size: var(--fs-md);
+  line-height: 1;
+  padding: 0 1px;
+}
+.td-tab-close:hover { color: var(--brick); }
+
+.td-tab-add { padding: 2px 8px; }
+
+/* ── 상태바 ── */
+
+.td-status {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: 3px var(--sp-3);
+  border-top: var(--line-hair);
+  background: var(--paper-50);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-500);
+}
+
+.td-status-doc {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--ink-700);
+}
+
+.td-status-hover {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.td-status-hint { color: var(--ink-400); white-space: nowrap; }
+
+/* 빼기(지우기) 모드 — 활성 시 벽돌색 경고 톤 */
+.td-erase.is-active {
+  background: var(--brick) !important;
+  color: #fff !important;
+}
+
+/* 구역 종류 — 안전 파랑 / 위험 빨강 */
+.td-zone-safe.is-active {
+  background: var(--blueprint) !important;
+  color: #fff !important;
+}
+
+.td-zone-danger.is-active {
+  background: var(--brick) !important;
+  color: #fff !important;
+}
+
+/* 그리기 대상 — 구조는 잉크, 엄폐는 오크르 */
+.td-target-struct.is-active {
+  background: var(--ink-900) !important;
+  color: var(--paper-50) !important;
+}
+
+.td-target-cover.is-active {
+  background: var(--ochre) !important;
+  color: #fff !important;
+}
+
+/* 러프(동굴) 모드 — 활성 시 모스 톤 */
+.td-rough.is-active {
+  background: var(--moss) !important;
+  color: #fff !important;
+}
+
+/* 버블 오버레이 — 활성 시 청사진 톤 + 투명도 슬라이더 */
+.td-overlay.is-active {
+  background: var(--blueprint) !important;
+  color: #fff !important;
+}
+
+.td-overlay-range {
+  width: 72px;
+  accent-color: var(--blueprint);
+}
+
+/* 옵션바 슬라이더 앞 짧은 라벨 (흐름 실험실 등) */
+.td-bar-label {
+  font-size: 11px;
+  color: var(--ink-600, #6b6257);
+  white-space: nowrap;
+  align-self: center;
+}
+
+.td-cal.is-active {
+  background: var(--blueprint) !important;
+  color: #fff !important;
+}
+
+.td-cal-range { width: 88px; }
+
+.td-undo:disabled,
+.td-redo:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

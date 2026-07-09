@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Decoration as TDecoration } from '../../types';
 import { useProject } from '../../store/project';
+import { adjustColor } from '../../utils/hue';
 
 interface Props {
   dec: TDecoration;
@@ -36,6 +37,8 @@ function ArrowDeco({
   onSelect: (e: React.PointerEvent) => void;
   onEndpointDown: (e: React.PointerEvent, id: string, endpoint: 'start' | 'end') => void;
 }) {
+  const hueShift = useProject((s) => s.project.theme?.hueShift ?? 0);
+  const satScale = useProject((s) => s.project.theme?.satScale ?? 1);
   const x1 = dec.x, y1 = dec.y;
   const x2 = dec.x2 ?? dec.x + 140, y2 = dec.y2 ?? dec.y;
   const dx = x2 - x1;
@@ -44,8 +47,10 @@ function ArrowDeco({
   const ux = dx / len;
   const uy = dy / len;
   const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-  // vivid red 아이콘 톤 — 외곽선 없음, 굵은 선, 큰 화살촉
-  const ARROW = '#E5202B';
+  // vivid red 아이콘 톤 — 외곽선 없음, 굵은 선, 큰 화살촉. 테마 hue/채도 반영
+  const ARROW = (hueShift !== 0 || satScale !== 1)
+    ? adjustColor('#E5202B', hueShift, satScale)
+    : '#E5202B';
   const lineWidth = selected ? 28 : 24;
   const arrowSize = 44;
   // 화살촉이 본선 끝의 둥근 cap을 완전히 덮도록 짧게 자른 선 끝점

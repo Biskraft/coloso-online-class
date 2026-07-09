@@ -21,6 +21,106 @@
   gap: var(--sp-4);
 }
 
+.cs-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.cs-theme {
+  display: inline-grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 10px;
+  background: var(--paper-100);
+  border: 1px solid rgba(26, 24, 20, 0.12);
+  border-radius: 14px;
+}
+
+.cs-theme-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  grid-column: 1;
+}
+
+.cs-theme-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink-700);
+  font-weight: 600;
+  width: 26px;
+}
+
+.cs-theme-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 140px;
+  height: 8px;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+  border: 1px solid rgba(26, 24, 20, 0.18);
+}
+
+.cs-theme-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--paper-50);
+  border: 2px solid var(--ink-900);
+  cursor: grab;
+  box-shadow: var(--shadow-paper-1);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.cs-theme-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.cs-theme-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.05); }
+
+.cs-theme-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--paper-50);
+  border: 2px solid var(--ink-900);
+  cursor: grab;
+}
+
+.cs-theme-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-800);
+  min-width: 44px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-theme-reset {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  background: transparent;
+  border: 1px solid rgba(26, 24, 20, 0.24);
+  border-radius: 999px;
+  color: var(--ink-700);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+.cs-theme-reset:hover:not(:disabled) {
+  background: var(--ink-900);
+  color: var(--paper-50);
+  border-color: var(--ink-900);
+}
+.cs-theme-reset:disabled { opacity: 0.4; cursor: not-allowed; }
+
 .cs-toggle {
   display: inline-flex;
   align-items: center;

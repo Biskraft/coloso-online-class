@@ -1,6 +1,6 @@
 .postit-pad {
   display: grid;
-  grid-template-rows: auto auto auto auto auto 1fr;
+  grid-template-rows: auto auto auto auto auto auto 1fr;
   height: 100%;
   min-height: 0;
   background: var(--paper-100);
@@ -9,7 +9,40 @@
 
 /* 템플릿 패널이 열리면 패널이 남은 공간 전부 차지, 포스트잇 목록은 작게 */
 .postit-pad.is-templates-open {
-  grid-template-rows: auto auto auto auto 1fr 0;
+  grid-template-rows: auto auto auto auto auto 1fr 0;
+}
+
+/* 브랜드 행 — 사이드바 최상단: 브랜드 마크 + 평면도 진입 버튼 */
+.pp-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  min-width: 0;   /* 그리드 아이템 — 내용 폭으로 넘치지 않게 (브랜드 부제는 말줄임) */
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  border-bottom: 1px solid rgba(26, 24, 20, 0.08);
+}
+
+.pp-brand { min-width: 0; }
+
+.pp-floorplan {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--ink-800);
+  background: var(--paper-50);
+  border: 1px solid rgba(26, 24, 20, 0.18);
+  border-radius: var(--r-md);
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.pp-floorplan:hover {
+  background: var(--paper-200);
+  color: var(--ink-900);
 }
 .postit-pad.is-templates-open .tp {
   max-height: none;
@@ -183,6 +216,34 @@
   gap: 10px;
 }
 
+/* 드래그 재정렬 — 항목/드롭 위치 표시 */
+.pp-item {
+  position: relative;
+  list-style: none;
+}
+.pp-item.is-dragging {
+  opacity: 0.4;
+}
+/* 드롭될 위치에 굵은 잉크선 표시 (gap 중앙) */
+.pp-item.is-drop-before::before,
+.pp-item.is-drop-after::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--brick);
+  box-shadow: 0 0 0 2px rgba(207, 85, 71, 0.18);
+  pointer-events: none;
+  z-index: 2;
+}
+.pp-item.is-drop-before::before { top: -6px; }
+.pp-item.is-drop-after::after { bottom: -6px; }
+/* 카드에 잡기(grab) 커서 힌트 */
+.pp-item .postit { cursor: grab; }
+.pp-item .postit:active { cursor: grabbing; }
+
 .pp-empty {
   padding: var(--sp-6) var(--sp-3);
   text-align: center;
@@ -193,4 +254,49 @@
   margin: 0;
   white-space: pre-line;
   font-size: 17px;
+}
+
+/* 평면도(매싱) 실습실 진입 — 브랜드 마크와 같은 문법의 항목 */
+.pp-massing {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: 8px 2px;
+  margin-top: 2px;
+  background: transparent;
+  border: none;
+  border-bottom: var(--line-hair);
+  cursor: pointer;
+  color: var(--blueprint);
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.pp-massing:hover { background: var(--paper-200); }
+
+.pm-icon { display: inline-flex; flex: none; }
+
+.pm-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+  min-width: 0;
+}
+
+.pm-text strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--ink-900);
+}
+
+.pm-text em {
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  margin-top: 2px;
+  color: var(--ink-500);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

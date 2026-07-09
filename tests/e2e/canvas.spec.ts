@@ -31,7 +31,7 @@ test('store API로 두 노드 추가 후 엣지 생성', async ({ page }) => {
 
   // 첫 번째 노드 클릭 → 핸들 표시
   await page.locator('[data-node] .bn-shape').first().click({ force: true });
-  await expect(page.locator('.bn-handle')).toBeVisible();
+  await expect(page.locator('.bn-handle').first()).toBeVisible();
 
   // store API로 엣지 생성 검증 (UI 드래그는 e2e가 아닌 단위 인터랙션 — store가 정답)
   await page.evaluate(() => {
@@ -59,7 +59,7 @@ test('드래그 인터랙션으로 엣지 생성 (실사용 시나리오)', asyn
     const store = (window as any).__bubbleStore;
     const s = store.getState();
     s.addNode({ x: 250, y: 300, type: 'room', name: 'A' });
-    s.addNode({ x: 700, y: 300, type: 'room', name: 'B' });
+    s.addNode({ x: 520, y: 300, type: 'room', name: 'B' });   // 1280px 뷰포트에서 인스펙터에 안 가리도록
   });
 
   // 첫 노드 선택
@@ -85,7 +85,6 @@ test('드래그 인터랙션으로 엣지 생성 (실사용 시나리오)', asyn
 test('펜떨림 토글이 엣지 모양에 영향', async ({ page }) => {
   await page.locator('.canvas-toolbar button', { hasText: '방' }).first().click();
   await page.locator('.canvas-toolbar button', { hasText: '보스' }).first().click();
-  await page.locator('.ct-layout').click();
   await page.waitForTimeout(300);
 
   // 강제로 엣지를 store에 추가 (UI 드래그 대신)

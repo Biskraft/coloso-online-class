@@ -31,5 +31,5 @@ test('라이브 배포: 템플릿 적용 → 포스트잇 생성', async ({ page
   await page.locator('.pp-templates-btn').click();
   await page.locator('.tp-item').first().click();
   await page.locator('.tp-apply').click();
-  await expect(page.locator('.postit')).toHaveCount(7); // 첫 템플릿의 시드 포스트잇 수
+  await expect(page.locator('.postit')).toHaveCount(10); // 첫 템플릿의 시드 포스트잇 수 (템플릿 개정으로 10장)
 });

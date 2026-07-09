@@ -60,6 +60,71 @@
 
 .exp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.exp-square {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--paper-50);
+  border: 1px solid rgba(26, 24, 20, 0.10);
+  border-radius: var(--r-md);
+}
+
+.exp-square-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+  font-family: var(--font-mono);
+}
+
+.exp-seg {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  padding: 2px;
+  background: var(--paper-200);
+  border-radius: var(--r-sm);
+}
+
+.exp-seg-btn {
+  padding: 6px 4px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--ink-700);
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+
+.exp-seg-btn:hover:not(:disabled):not(.is-on) {
+  background: var(--paper-50);
+  color: var(--ink-900);
+}
+
+.exp-seg-btn.is-on {
+  background: var(--ink-900);
+  color: var(--paper-50);
+  font-weight: 600;
+}
+
+.exp-seg-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.exp-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--ink-700);
+  cursor: pointer;
+  user-select: none;
+}
+.exp-opt input { cursor: pointer; }
+.exp-opt:hover { color: var(--ink-900); }
+
 .exp-btn--primary {
   background: var(--brick);
   color: var(--paper-50);

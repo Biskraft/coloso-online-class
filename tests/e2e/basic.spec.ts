@@ -34,7 +34,7 @@ test.describe('기본 로딩', () => {
     await expect(theme).toHaveValue('테스트 사원');
     // 디바운스 대기 후 localStorage에 기록되었는지 확인
     await page.waitForTimeout(700);
-    const stored = await page.evaluate(() => localStorage.getItem('bubble-atelier::project'));
+    const stored = await page.evaluate(() => localStorage.getItem('bubble-atelier::workspace'));
     expect(stored).toContain('테스트 사원');
   });
 });

@@ -24,3 +24,84 @@
     grid-template-columns: 240px 1fr 308px;
   }
 }
+
+/* ── 넓게 쓰기(포커스) 모드 ──────────────────────────────────
+   캔버스와 하단 플로팅 메뉴(.canvas-toolbar)만 남기고
+   탭/컨셉바/포스트잇/인스펙터/상단 뷰토글을 모두 숨긴다. */
+.app-shell.is-focus {
+  grid-template-rows: 1fr;
+}
+.app-shell.is-focus .project-tabs,
+.app-shell.is-focus .concept-bar {
+  display: none;
+}
+.app-shell.is-focus .app-body {
+  grid-template-columns: 1fr;
+  /* 패널을 숨기면 암묵적 행이 캔버스의 작은 내재 높이로 줄어든다.
+     행을 1fr로 명시해 캔버스가 화면 전체 높이를 채우도록 한다. */
+  grid-template-rows: minmax(0, 1fr);
+}
+.app-shell.is-focus .postit-pad,
+.app-shell.is-focus .inspector {
+  display: none;
+}
+/* 캔버스 상단 뷰 토글 바도 숨겨 캔버스를 최대로 */
+.app-shell.is-focus .cs-topbar {
+  display: none;
+}
+/* cs-topbar(auto 행)를 숨기면 캔버스가 비어버린 1fr 행 대신 첫 auto 행에
+   배치돼 높이가 줄어든다. 단일 1fr 행으로 바꿔 캔버스가 전체를 채우게 한다. */
+.app-shell.is-focus .canvas-shell {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* 넓게 쓰기 토글 버튼 — 항상 우상단 고정.
+   .paper-grain > * { position: relative } 보다 명시도를 높여 fixed 보장 */
+.app-shell .focus-toggle {
+  position: fixed;
+  top: 10px;
+  right: 14px;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-family: var(--font-body, inherit);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-700);
+  background: var(--paper-50);
+  border: var(--line-medium);
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(26, 24, 20, 0.12);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.app-shell .focus-toggle:hover {
+  color: var(--ink-900);
+  background: var(--paper-200);
+  box-shadow: 0 3px 12px rgba(26, 24, 20, 0.18);
+}
+.focus-toggle svg {
+  display: block;
+}
+/* 포커스 모드에서는 강조색으로 활성 상태 표시 */
+.app-shell.is-focus .focus-toggle {
+  color: #fff;
+  background: var(--brick);
+  border-color: var(--brick);
+}
+.app-shell.is-focus .focus-toggle:hover {
+  filter: brightness(1.06);
+}
+
+
+/* ── 평면도(탑다운) 모드 — 탭 + 평면도 2행 레이아웃 ── */
+.app-shell.is-topdown {
+  grid-template-rows: 34px minmax(0, 1fr);
+}
+
+/* ── 매싱 모드 — 맵과 분리된 실습장, 전체 화면 1행 ── */
+.app-shell.is-massing {
+  grid-template-rows: minmax(0, 1fr);
+}

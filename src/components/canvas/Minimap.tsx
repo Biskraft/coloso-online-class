@@ -1,16 +1,21 @@
-import type { BubbleNode } from '../../types';
+import type { BubbleEdge, BubbleNode } from '../../types';
 import { NODE_STYLES, nodeRadii } from './node-shapes';
+import { EDGE_STYLE } from './Edge';
 
 interface Props {
   nodes: BubbleNode[];
+  edges: BubbleEdge[];
   viewBox: { x: number; y: number; w: number; h: number };
 }
 
 const MM_W = 180;
 const MM_H = 130;
 
-export function Minimap({ nodes, viewBox }: Props) {
+export function Minimap({ nodes, edges, viewBox }: Props) {
   if (nodes.length === 0) return null;
+
+  // 엣지를 노드 중심끼리 잇는 선으로 — id로 노드 좌표 조회
+  const byId = new Map(nodes.map((n) => [n.id, n]));
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const n of nodes) {
@@ -37,6 +42,24 @@ export function Minimap({ nodes, viewBox }: Props) {
         width={w + pad * 2} height={h + pad * 2}
         fill="rgba(244, 239, 230, 0.94)"
       />
+      {/* 엣지 선 — 노드 아래에 먼저 그린다 */}
+      {edges.map((e) => {
+        const from = byId.get(e.from);
+        const to = byId.get(e.to);
+        if (!from || !to) return null;
+        const style = EDGE_STYLE[e.type];
+        return (
+          <line
+            key={e.id}
+            x1={from.x} y1={from.y}
+            x2={to.x} y2={to.y}
+            stroke={style.stroke}
+            strokeWidth={2.5}
+            strokeDasharray={style.dash}
+            strokeLinecap="round"
+          />
+        );
+      })}
       {nodes.map((n) => {
         const s = NODE_STYLES[n.type];
         const r = nodeRadii(n.type, n.size ?? 1, n.aspect ?? 1);

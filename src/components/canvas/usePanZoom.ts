@@ -25,7 +25,8 @@ export function usePanZoom(svgRef: React.RefObject<SVGSVGElement>) {
           target.closest('[data-node]') ||
           target.closest('[data-edge]') ||
           target.closest('[data-handle]') ||
-          target.closest('[data-decoration]')
+          target.closest('[data-decoration]') ||
+          target.closest('[data-image]')
         )) {
           if (event.type === 'wheel') return true;
           return false;

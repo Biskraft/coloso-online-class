@@ -36,7 +36,7 @@ test('Redo로 취소된 노드 복원', async ({ page }) => {
 
 test('Undo 버튼 disabled→enabled 전환', async ({ page }) => {
   // 초기: undo 불가
-  const undoBtn = page.locator('.cb-undo').first();
+  const undoBtn = page.locator('button[aria-label="되돌리기"]');
   await expect(undoBtn).toBeDisabled();
   // 변경 후 활성
   await page.evaluate(() => {

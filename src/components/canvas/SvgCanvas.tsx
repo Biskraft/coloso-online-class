@@ -1,19 +1,23 @@
-import { useRef, useState, useCallback, useMemo } from 'react';
+import { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import { useProject } from '../../store/project';
 import { BubbleNode } from './BubbleNode';
 import { Edge } from './Edge';
 import { Minimap } from './Minimap';
 import { Decoration } from './Decoration';
+import { CanvasImage } from './CanvasImage';
 import { NODE_STYLES } from './node-shapes';
 import { usePanZoom, screenToWorld } from './usePanZoom';
+import { fileToSizedImage, MIN_IMAGE_DIM } from '../../utils/image';
 import type { NodeType, DecorationKind } from '../../types';
 import './SvgCanvas.css';
 
 interface DragState {
-  kind: 'node' | 'edge' | 'resize' | 'deco-move' | 'deco-arrow' | 'deco-resize' | 'group' | 'box-select' | 'none';
+  kind: 'node' | 'edge' | 'resize' | 'deco-move' | 'deco-arrow' | 'deco-resize' | 'img-move' | 'img-resize' | 'group' | 'box-select' | 'none';
   nodeId?: string;
   edgeFrom?: string;
   decId?: string;
+  imgId?: string;
+  imgStart?: { x: number; y: number; width: number; height: number };
   arrowEndpoint?: 'start' | 'end';
   startWorld?: { x: number; y: number };
   nodeStart?: { x: number; y: number };
@@ -28,6 +32,10 @@ export function SvgCanvas() {
   const nodes = useProject((s) => s.project.nodes);
   const edges = useProject((s) => s.project.edges);
   const decorations = useProject((s) => s.project.decorations ?? []);
+  const images = useProject((s) => s.project.images ?? []);
+  const addImage = useProject((s) => s.addImage);
+  const moveImage = useProject((s) => s.moveImage);
+  const resizeImage = useProject((s) => s.resizeImage);
   const groupSelection = useProject((s) => s.groupSelection);
   const setGroupSelection = useProject((s) => s.setGroupSelection);
   const moveGroup = useProject((s) => s.moveGroup);
@@ -114,6 +122,39 @@ export function SvgCanvas() {
     (e.target as Element).setPointerCapture(e.pointerId);
   }, []);
 
+  // 이미지: 이동 (전체 드래그)
+  const onImagePointerDown = useCallback((e: React.PointerEvent, id: string) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const sw = screenToWorld(transform, e.clientX - rect.left, e.clientY - rect.top);
+    const st = useProject.getState();
+    if (st.groupSelection.includes(id)) {
+      setDrag({ kind: 'group', startWorld: sw, cursorWorld: sw });
+      (e.target as Element).setPointerCapture(e.pointerId);
+      return;
+    }
+    const im = (st.project.images ?? []).find((x) => x.id === id);
+    if (!im) return;
+    setDrag({
+      kind: 'img-move',
+      imgId: id,
+      startWorld: sw,
+      imgStart: { x: im.x, y: im.y, width: im.width, height: im.height },
+    });
+    (e.target as Element).setPointerCapture(e.pointerId);
+  }, [transform]);
+
+  // 이미지: 리사이즈 (SE 핸들, 비율 유지)
+  const onImageResize = useCallback((e: React.PointerEvent, id: string) => {
+    e.stopPropagation();
+    if (!svgRef.current) return;
+    const st = useProject.getState();
+    const im = (st.project.images ?? []).find((x) => x.id === id);
+    if (!im) return;
+    setDrag({ kind: 'img-resize', imgId: id, imgStart: { x: im.x, y: im.y, width: im.width, height: im.height } });
+    (e.target as Element).setPointerCapture(e.pointerId);
+  }, []);
+
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (drag.kind === 'none' || !svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
@@ -153,6 +194,15 @@ export function SvgCanvas() {
       const w = Math.max(40, (sw.x - d.x) * 2);
       const h = Math.max(20, (sw.y - d.y) * 2);
       updateDecoration(drag.decId, { width: w, height: h });
+    } else if (drag.kind === 'img-move' && drag.imgId && drag.startWorld && drag.imgStart) {
+      const nx = drag.imgStart.x + (sw.x - drag.startWorld.x);
+      const ny = drag.imgStart.y + (sw.y - drag.startWorld.y);
+      moveImage(drag.imgId, nx, ny);
+    } else if (drag.kind === 'img-resize' && drag.imgId && drag.imgStart) {
+      const ratio = drag.imgStart.width / drag.imgStart.height || 1;
+      const newW = Math.max(MIN_IMAGE_DIM, (sw.x - drag.imgStart.x) * 2);
+      const newH = Math.max(MIN_IMAGE_DIM / ratio, newW / ratio);
+      resizeImage(drag.imgId, Math.round(newW), Math.round(newH));
     } else if (drag.kind === 'group' && drag.startWorld && drag.cursorWorld) {
       const dx = sw.x - drag.cursorWorld.x;
       const dy = sw.y - drag.cursorWorld.y;
@@ -169,7 +219,7 @@ export function SvgCanvas() {
         },
       });
     }
-  }, [drag, transform, moveNode, resizeNode, setNodeAspect, moveDecoration, updateDecoration]);
+  }, [drag, transform, moveNode, resizeNode, setNodeAspect, moveDecoration, updateDecoration, moveImage, resizeImage]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     if (drag.kind === 'edge' && drag.edgeFrom) {
@@ -189,6 +239,9 @@ export function SvgCanvas() {
       });
       (st.project.decorations ?? []).forEach((d) => {
         if (d.x >= x0 && d.x <= x1 && d.y >= y0 && d.y <= y1) ids.push(d.id);
+      });
+      (st.project.images ?? []).forEach((im) => {
+        if (im.x >= x0 && im.x <= x1 && im.y >= y0 && im.y <= y1) ids.push(im.id);
       });
       if (ids.length > 0) setGroupSelection(ids);
       else setGroupSelection([]);
@@ -211,7 +264,8 @@ export function SvgCanvas() {
   }, [select, transform, setGroupSelection]);
 
   const onDragOver = (e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('application/x-postit-id')) {
+    const t = e.dataTransfer.types;
+    if (t.includes('application/x-postit-id') || t.includes('Files')) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
       setDropHover(true);
@@ -222,12 +276,50 @@ export function SvgCanvas() {
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDropHover(false);
-    const pid = e.dataTransfer.getData('application/x-postit-id');
-    if (!pid || !svgRef.current) return;
+    if (!svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
     const sw = screenToWorld(transform, e.clientX - rect.left, e.clientY - rect.top);
-    promotePostit(pid, sw.x, sw.y);
+
+    // 1) 이미지 파일 드롭 — 각 파일을 커서 위치 기준으로 배치 (살짝 계단식 오프셋)
+    const imageFiles = Array.from(e.dataTransfer.files ?? []).filter((f) => f.type.startsWith('image/'));
+    if (imageFiles.length > 0) {
+      imageFiles.forEach(async (file, i) => {
+        try {
+          const sized = await fileToSizedImage(file);
+          if (sized) addImage(sw.x + i * 24, sw.y + i * 24, sized.src, sized.width, sized.height);
+        } catch (err) {
+          console.warn('이미지 드롭 실패', err);
+        }
+      });
+      return;
+    }
+
+    // 2) 포스트잇 → 노드 승격
+    const pid = e.dataTransfer.getData('application/x-postit-id');
+    if (pid) promotePostit(pid, sw.x, sw.y);
   };
+
+  // Ctrl+V — 클립보드 이미지를 뷰포트 중앙에 배치
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return; // 입력 중에는 무시
+      const items = e.clipboardData?.items;
+      if (!items || !svgRef.current) return;
+      const fileItem = Array.from(items).find((it) => it.kind === 'file' && it.type.startsWith('image/'));
+      if (!fileItem) return;
+      const blob = fileItem.getAsFile();
+      if (!blob) return;
+      e.preventDefault();
+      const rect = svgRef.current.getBoundingClientRect();
+      const center = screenToWorld(transform, rect.width / 2, rect.height / 2);
+      fileToSizedImage(blob)
+        .then((sized) => { if (sized) addImage(center.x, center.y, sized.src, sized.width, sized.height); })
+        .catch((err) => console.warn('이미지 붙여넣기 실패', err));
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [transform, addImage]);
 
   // 데코 z-order (뒤→앞): 회색 타원 → 화살표 → 텍스트
   // SVG는 먼저 그린 것이 뒤 → 타원을 먼저, 텍스트를 마지막에
@@ -318,7 +410,20 @@ export function SvgCanvas() {
         </defs>
         <rect data-bg x="-100000" y="-100000" width="200000" height="200000" fill="transparent" />
 
-        <g transform={`translate(${transform.x} ${transform.y}) scale(${transform.k})`}>
+        <g data-cv-world transform={`translate(${transform.x} ${transform.y}) scale(${transform.k})`}>
+          {/* 참조 이미지 — 가장 뒤 레이어 (데코·노드 아래) */}
+          {images.map((im) => (
+            <CanvasImage
+              key={im.id}
+              image={im}
+              selected={
+                (selection.kind === 'image' && selection.id === im.id) ||
+                groupSelection.includes(im.id)
+              }
+              onPointerDown={onImagePointerDown}
+              onResizeDown={onImageResize}
+            />
+          ))}
           {/* 데코 요소 — 다이어그램(엣지·노드)보다 *뒤*에. 내부 순서: 텍스트 → 화살표 → 타원 */}
           {orderedDecorations.map((d) => (
             <Decoration
@@ -387,7 +492,7 @@ export function SvgCanvas() {
       </svg>
 
       {/* 빈 상태 */}
-      {nodes.length === 0 && (
+      {nodes.length === 0 && images.length === 0 && decorations.length === 0 && (
         <div className="canvas-empty">
           <div className="canvas-empty-card">
             <h2 className="hand">캔버스가 비어 있습니다</h2>
@@ -426,12 +531,12 @@ export function SvgCanvas() {
 
       {view.showMinimap && nodes.length > 0 && (
         <div className="canvas-minimap">
-          <Minimap nodes={nodes} viewBox={viewport} />
+          <Minimap nodes={nodes} edges={edges} viewBox={viewport} />
         </div>
       )}
 
       {dropHover && (
-        <div className="canvas-drop-banner hand">여기에 놓아 노드로 승격</div>
+        <div className="canvas-drop-banner hand">여기에 놓기 — 포스트잇은 노드로, 이미지는 캔버스에 배치</div>
       )}
     </div>
   );

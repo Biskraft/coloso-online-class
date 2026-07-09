@@ -53,7 +53,9 @@ test('v2 비주얼 — 펜떨림 + 엣지 경계 + 리사이즈', async ({ page 
   await page.waitForTimeout(300);
   await page.screenshot({ path: 'screenshots/v2-02-rough.png', fullPage: false });
 
-  // 3. 보스 선택 → 리사이즈 핸들 가시
+  // 3. 보스 선택 → 리사이즈 핸들 가시 (1280px 뷰포트 밖일 수 있어 화면 맞춤 먼저)
+  await page.locator('button[title="화면 맞춤"]').click();
+  await page.waitForTimeout(250);
   await page.locator('[data-node]').last().locator('.bn-shape').click({ force: true });
   await page.waitForTimeout(150);
   await page.screenshot({ path: 'screenshots/v2-03-boss-selected-handles.png', fullPage: false });

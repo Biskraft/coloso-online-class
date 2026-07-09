@@ -1,0 +1,23 @@
+/* 매싱 스케처 전용 보조 스타일 — 기본은 TopdownShell.css 승계 */
+
+.ms-tone {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ms-tone-chip {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid;
+  border-radius: 2px;
+}
+
+.ms-dir {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-600);
+  padding: 0 4px;
+  white-space: nowrap;
+}

@@ -2,19 +2,62 @@ import { useState } from 'react';
 import { useProject } from '../../store/project';
 import { PostitCard } from '../postit/PostitCard';
 import { TemplatePicker } from '../templates/TemplatePicker';
+import { BrandMark } from './BrandMark';
 import type { PostitColor } from '../../types';
 import './PostitPad.css';
 
 const COLORS: PostitColor[] = ['yellow', 'pink', 'mint', 'blue', 'lilac'];
 
+const POSTIT_DT = 'application/x-postit-id';
+
 export function PostitPad() {
   const postits = useProject((s) => s.project.postits);
   const addPostit = useProject((s) => s.addPostit);
+  const enterTopdown = useProject((s) => s.enterTopdown);
   const clearAllPostits = useProject((s) => s.clearAllPostits);
   const promoteAllPostits = useProject((s) => s.promoteAllPostits);
+  const reorderPostits = useProject((s) => s.reorderPostits);
   const [color, setColor] = useState<PostitColor>('yellow');
   const [query, setQuery] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
+  // 드래그 재정렬 상태 (검색 중에는 비활성 — 필터된 부분집합 재정렬은 모호)
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overInfo, setOverInfo] = useState<{ id: string; pos: 'before' | 'after' } | null>(null);
+  const reorderEnabled = !query;
+
+  const isPostitDrag = (e: React.DragEvent) =>
+    e.dataTransfer.types.includes(POSTIT_DT);
+
+  const onItemDragOver = (e: React.DragEvent, targetId: string) => {
+    if (!reorderEnabled || !isPostitDrag(e)) return;
+    e.preventDefault();              // 드롭 허용
+    e.dataTransfer.dropEffect = 'copy';  // 소스 effectAllowed='copy'와 일치
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos: 'before' | 'after' =
+      e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    setOverInfo((prev) =>
+      prev && prev.id === targetId && prev.pos === pos ? prev : { id: targetId, pos });
+  };
+
+  const onItemDrop = (e: React.DragEvent, targetId: string) => {
+    if (!reorderEnabled) return;
+    const from = e.dataTransfer.getData(POSTIT_DT) || dragId;
+    setOverInfo(null);
+    setDragId(null);
+    if (!from || from === targetId) return;
+    e.preventDefault();
+    e.stopPropagation();             // 캔버스 승격 드롭과 분리
+    const rect = e.currentTarget.getBoundingClientRect();
+    const after = e.clientY >= rect.top + rect.height / 2;
+    const ids = postits.map((p) => p.id).filter((id) => id !== from);
+    let idx = ids.indexOf(targetId);
+    if (idx === -1) return;
+    if (after) idx += 1;
+    ids.splice(idx, 0, from);
+    reorderPostits(ids);
+  };
+
+  const onListDragEnd = () => { setOverInfo(null); setDragId(null); };
 
   const unpromotedCount = postits.filter((p) => !p.promoted).length;
 
@@ -42,6 +85,15 @@ export function PostitPad() {
 
   return (
     <aside className={`postit-pad edge-right ${showTemplates ? 'is-templates-open' : ''}`}>
+      <div className="pp-brand-row">
+        <BrandMark className="pp-brand" />
+        <button
+          className="pp-floorplan"
+          data-testid="enter-topdown"
+          onClick={enterTopdown}
+          title="평면도 — 버블에서 설계한 공간을 탑다운 도면으로 (Esc로 복귀)"
+        >⊞ 평면도</button>
+      </div>
       <header className="pp-header">
         <div className="pp-title-row">
           <h3 className="pp-title">포스트잇</h3>
@@ -116,11 +168,23 @@ export function PostitPad() {
             </p>
           </li>
         )}
-        {filtered.map((p) => (
-          <li key={p.id}>
-            <PostitCard postit={p} />
-          </li>
-        ))}
+        {filtered.map((p) => {
+          const dropCls = overInfo?.id === p.id && dragId && dragId !== p.id
+            ? `is-drop-${overInfo.pos}`
+            : '';
+          return (
+            <li
+              key={p.id}
+              className={`pp-item ${dragId === p.id ? 'is-dragging' : ''} ${dropCls}`}
+              onDragStart={() => reorderEnabled && setDragId(p.id)}
+              onDragOver={(e) => onItemDragOver(e, p.id)}
+              onDrop={(e) => onItemDrop(e, p.id)}
+              onDragEnd={onListDragEnd}
+            >
+              <PostitCard postit={p} />
+            </li>
+          );
+        })}
       </ul>
     </aside>
   );

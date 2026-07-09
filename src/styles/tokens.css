@@ -98,4 +98,82 @@
   --shell-bar-h:    52px;
   --shell-pad-w:    300px;
   --shell-inspector-w: 374px;
+
+  /* 캔버스 배경 — 그리드 라인 색조 (다크에서 가독성 위해 별도 토큰) */
+  --grid-line-soft: rgba(44, 95, 124, 0.06);
+  --grid-line-hard: rgba(44, 95, 124, 0.10);
+
+  /* 선택 외곽선 — 캔버스 노드/데코의 선택 표시 색 (다크에서 자동 반전) */
+  --select-outline: #1A1814;
+}
+
+/* ─────────────────────────────────────────────────────────
+   다크 모드 — 야간 작업·OLED 친화. 잉크↔종이 반전 패턴
+   ───────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  /* 종이 → 잉크 톤으로 반전. 가장 어두운 surface가 paper-100 */
+  --paper-50:  #232017;   /* 가장 밝은 surface (인스펙터·툴팁 등) */
+  --paper-100: #17140F;   /* 기본 배경 */
+  --paper-200: #1C1813;
+  --paper-300: #2A251D;
+  --paper-400: #3C3527;
+
+  /* 잉크 → 종이 톤으로 반전. 텍스트 = 가장 밝은 종이 */
+  --ink-900: #F4EFE6;     /* 가장 밝은 본문 텍스트 */
+  --ink-800: #E4DDCE;
+  --ink-700: #CABFAA;
+  --ink-600: #A0978A;
+  --ink-500: #7E7668;     /* 캡션 회색 */
+  --ink-400: #5E5850;
+  --ink-300: #3F3A33;
+
+  /* 시그니처 색상 — 어두운 배경에서 가독성 위해 살짝 밝게 */
+  --brick:       #D66B66;
+  --brick-soft:  #EFA29E;
+  --brick-deep:  #B85450;
+
+  --blueprint:      #5C9BBE;
+  --blueprint-soft: #8FB9D2;
+  --blueprint-deep: #2C5F7C;
+
+  --ochre:      #DFC180;
+  --ochre-soft: #ECD8AA;
+  --ochre-deep: #B0934D;
+
+  --moss:       #90B57F;
+  --moss-soft:  #B6CFA8;
+
+  /* 포스트잇 — 밝기 살짝 낮춰 눈부심 방지 */
+  --postit-yellow: #C9B370;
+  --postit-pink:   #C48A8A;
+  --postit-mint:   #7AB4A5;
+  --postit-blue:   #8AABC6;
+  --postit-lilac:  #AD96BD;
+
+  /* 그림자 — 어둠 위 어둠 + 살짝의 light rim */
+  --shadow-paper-1: 0 1px 0 rgba(0, 0, 0, 0.50), 0 1px 3px rgba(0, 0, 0, 0.55);
+  --shadow-paper-2: 0 2px 0 rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.55);
+  --shadow-paper-3: 0 4px 0 rgba(0, 0, 0, 0.30), 0 14px 28px rgba(0, 0, 0, 0.65);
+  --shadow-postit:  2px 4px 8px rgba(0, 0, 0, 0.55), 0 0 1px rgba(244, 239, 230, 0.10);
+  --shadow-bubble:  0 1px 0 rgba(0, 0, 0, 0.40), 0 6px 16px rgba(0, 0, 0, 0.55);
+
+  /* 경계선 — 종이 톤으로 반전 */
+  --line-hair:   1px solid rgba(244, 239, 230, 0.06);
+  --line-thin:   1px solid rgba(244, 239, 230, 0.12);
+  --line-medium: 1px solid rgba(244, 239, 230, 0.22);
+  --line-strong: 2px solid var(--ink-900);
+
+  /* 그리드 라인 — 청사진 톤 살짝 부각 */
+  --grid-line-soft: rgba(108, 156, 184, 0.08);
+  --grid-line-hard: rgba(108, 156, 184, 0.16);
+
+  /* 선택 외곽선 — 다크에서는 종이톤으로 반전 */
+  --select-outline: #F4EFE6;
+}
+
+/* OS 다크 모드 자동 감지 — 사용자가 명시 설정 안 했을 때만 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+  }
 }

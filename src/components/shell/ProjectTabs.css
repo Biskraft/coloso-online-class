@@ -109,6 +109,103 @@
   color: var(--brick);
 }
 
+/* 테마 토글 — BISK 크레딧 왼편에 짝지음 */
+.pt-theme-toggle {
+  margin-left: auto;
+  position: sticky;
+  right: 236px; /* 크레딧 알약 + 우상단 플로팅 '넓게' 버튼 폭만큼 좌측으로 */
+  align-self: center;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--paper-100);
+  border: 1px solid rgba(26, 24, 20, 0.16);
+  border-radius: 50%;
+  color: var(--ink-700);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .pt-theme-toggle {
+  border-color: rgba(244, 239, 230, 0.18);
+}
+
+.pt-theme-toggle:hover {
+  background: var(--paper-50);
+  color: var(--ink-900);
+  border-color: var(--ink-900);
+  transform: translateY(-1px) rotate(12deg);
+  box-shadow: var(--shadow-paper-1);
+}
+
+/* 제작자 표시 — 우측 고정. 플로팅 '넓게' 버튼(fixed right:14)과 겹치지 않게 띄움 */
+.pt-credit {
+  position: sticky;
+  right: 98px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 12px 2px 3px;
+  height: 26px;
+  align-self: center;
+  background: var(--paper-100);
+  border: 1px solid rgba(26, 24, 20, 0.16);
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--ink-700);
+  transition: all var(--dur-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.pt-credit:hover {
+  background: var(--paper-50);
+  color: var(--ink-900);
+  border-color: var(--ink-900);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-paper-1);
+}
+
+.pt-credit-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;          /* 원형 마스킹 */
+  object-fit: cover;
+  background: #0E0E0E;
+  flex-shrink: 0;
+  display: block;
+}
+
+.pt-credit-text {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.05;
+  gap: 1px;
+}
+
+.pt-credit-text strong {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: inherit;
+}
+
+.pt-credit-domain {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  opacity: 0.70;
+}
+
+.pt-credit:hover .pt-credit-domain {
+  opacity: 1;
+  color: var(--brick-deep);
+}
+
 /* 닫기 확인 모달 */
 .pt-confirm-backdrop {
   position: fixed;

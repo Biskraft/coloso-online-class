@@ -16,7 +16,6 @@ test('파일 메뉴: 열고 → JSON 내보내기 작동', async ({ page }) => {
   await expect(menu).toBeVisible();
   await expect(menu.locator('button', { hasText: 'JSON 내보내기' })).toBeVisible();
   await expect(menu.locator('button', { hasText: 'JSON 불러오기' })).toBeVisible();
-  await expect(menu.locator('button', { hasText: '새 프로젝트' })).toBeVisible();
 
   // 항목 클릭이 작동하는지 — JSON 내보내기 download 트리거
   const [download] = await Promise.all([
@@ -28,21 +27,22 @@ test('파일 메뉴: 열고 → JSON 내보내기 작동', async ({ page }) => {
   await expect(page.locator('[data-cb-menu]')).toBeHidden();
 });
 
-test('파일 메뉴: 외부 클릭으로 닫힘', async ({ page }) => {
+test('파일 메뉴: 외부 클릭(오버레이)으로 닫힘', async ({ page }) => {
   await page.locator('.cb-btn', { hasText: '파일' }).click();
   await expect(page.locator('[data-cb-menu]')).toBeVisible();
 
-  // 캔버스 영역 클릭 → 메뉴 닫혀야 함
-  await page.locator('.canvas-svg').click({ position: { x: 200, y: 200 } });
+  // 메뉴 밖 어디를 눌러도 전체 화면 오버레이가 받아서 닫는다
+  await page.locator('.cb-menu-overlay').click({ position: { x: 200, y: 400 } });
   await expect(page.locator('[data-cb-menu]')).toBeHidden();
 });
 
-test('파일 메뉴: 토글 동작 (열고/닫기)', async ({ page }) => {
+test('파일 메뉴: 다시 열기 가능 (오버레이 닫기 후)', async ({ page }) => {
   const fileBtn = page.locator('.cb-btn', { hasText: '파일' });
-  // 1차 클릭 — 열림
+  // 열림 → 오버레이로 닫힘 → 다시 열림
   await fileBtn.click();
   await expect(page.locator('[data-cb-menu]')).toBeVisible();
-  // 2차 클릭 — 닫힘
-  await fileBtn.click();
+  await page.locator('.cb-menu-overlay').click({ position: { x: 200, y: 400 } });
   await expect(page.locator('[data-cb-menu]')).toBeHidden();
+  await fileBtn.click();
+  await expect(page.locator('[data-cb-menu]')).toBeVisible();
 });

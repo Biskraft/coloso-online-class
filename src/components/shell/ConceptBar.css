@@ -1,53 +1,23 @@
 .concept-bar {
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--sp-5);
+  gap: var(--sp-4);
   height: var(--shell-bar-h);
-  padding: 0 var(--sp-5);
+  padding: 0 var(--sp-4);
   background: linear-gradient(180deg, var(--paper-50) 0%, var(--paper-100) 100%);
   border-bottom: 1px solid rgba(26, 24, 20, 0.10);
   box-shadow: 0 1px 0 rgba(26, 24, 20, 0.05), 0 2px 6px rgba(26, 24, 20, 0.04);
   position: relative;
   z-index: 10;
-}
-
-.cb-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  color: var(--brick);
-}
-
-.cb-mark { display: inline-flex; }
-
-.cb-brand-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1;
-}
-
-.cb-brand-text strong {
-  font-family: var(--font-display);
-  font-size: 16px;
-  color: var(--ink-900);
-  letter-spacing: -0.01em;
-}
-
-.cb-brand-text em {
-  font-style: normal;
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  margin-top: 2px;
-  color: var(--ink-500);
+  overflow: hidden;
 }
 
 .cb-name {
   display: flex;
   align-items: baseline;
   gap: var(--sp-3);
-  padding-left: var(--sp-4);
-  border-left: 1px solid rgba(26, 24, 20, 0.10);
+  min-width: 0;
 }
 
 .cb-name-btn {
@@ -60,6 +30,20 @@
   padding: 2px 6px;
   border-radius: var(--r-sm);
   transition: background var(--dur-fast) var(--ease-out);
+  min-width: 0;
+  max-width: 30ch;
+}
+
+/* 제목이 길어도 레이아웃을 밀지 않도록 말줄임 처리.
+   이탤릭 글자(Gowun Batang)의 우측 돌출부가 overflow:hidden에 잘리지 않도록
+   우측 패딩으로 여유를 둔다 — overflow는 padding-box 경계에서 잘리므로
+   패딩 영역 안에서 이탤릭 꼬리가 온전히 그려진다. */
+.cb-name-btn > .hand {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  padding-right: 0.32em;
 }
 
 .cb-name-btn:hover { background: var(--paper-200); }
@@ -83,6 +67,8 @@
 
 .cb-stamp {
   color: var(--ink-500);
+  white-space: nowrap;
+  flex: none;
 }
 
 .cb-concept-line {
@@ -130,6 +116,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  flex: none;
 }
 
 .cb-undo {
@@ -212,4 +199,16 @@
   border: none;
   border-top: 1px solid rgba(26, 24, 20, 0.12);
   margin: 4px 0;
+}
+
+/* ── 반응형 정돈 — 좁은 폭에서 컨셉 입력 영역을 우선 확보 ──
+   브랜드가 사이드바로 빠져 제목 공간이 넉넉하므로 max-width 제약은 완화. */
+@media (max-width: 1320px) {
+  .concept-bar { gap: var(--sp-3); }
+}
+
+@media (max-width: 1120px) {
+  .cb-stamp { display: none; }            /* 저장 표시 숨김 — 액션 버튼 보존 우선 */
+  .cb-name-btn { font-size: 19px; max-width: 24ch; }
+  .cb-concept-line { gap: var(--sp-3); }
 }

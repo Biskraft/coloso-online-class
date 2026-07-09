@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { BubbleNode as TNode } from '../../types';
 import { NODE_STYLES, nodePaths, nodeRadii } from './node-shapes';
 import { useProject } from '../../store/project';
+import { adjustColor } from '../../utils/hue';
+import { useTheme } from '../../theme';
 
 interface Props {
   node: TNode;
@@ -16,13 +18,21 @@ export function BubbleNode({
   node, rough, selected,
   onPointerDownNode, onHandlePointerDown, onResizePointerDown,
 }: Props) {
-  const s = NODE_STYLES[node.type];
+  const baseStyle = NODE_STYLES[node.type];
+  const hueShift = useProject((st) => st.project.theme?.hueShift ?? 0);
+  const satScale = useProject((st) => st.project.theme?.satScale ?? 1);
+  const s = (hueShift !== 0 || satScale !== 1)
+    ? { ...baseStyle, fill: adjustColor(baseStyle.fill, hueShift, satScale) }
+    : baseStyle;
   const size = node.size ?? 1;
   const aspect = node.aspect ?? 1;
   const { rx, ry } = nodeRadii(node.type, size, aspect);
   const paths = nodePaths({ cx: 0, cy: 0, type: node.type, size, aspect, rough, seed: node.id });
-  const select = useProject((s) => s.select);
+  const select = useProject((st) => st.select);
   const [hover, setHover] = useState(false);
+  // 다크모드에서는 도형 외곽선도 흰색으로 (엣지 선과 동일 처리)
+  const theme = useTheme();
+  const strokeColor = theme === 'dark' ? '#FFFFFF' : s.stroke;
 
   // 엣지 연결 핸들 — 4방향 (N/E/S/W) 모두 동일 기능
   const edgeHandles = [
@@ -60,7 +70,7 @@ export function BubbleNode({
           key={idx}
           d={d}
           fill="none"
-          stroke={s.stroke}
+          stroke={strokeColor}
           strokeWidth={
             rough
               ? (selected ? s.strokeWidth + 0.6 : s.strokeWidth * 0.92)
@@ -78,7 +88,7 @@ export function BubbleNode({
           rx={rx + 9}
           ry={ry + 7}
           fill="none"
-          stroke="#1A1814"
+          stroke="var(--select-outline)"
           strokeWidth="1.4"
           strokeDasharray="5 4"
           pointerEvents="none"

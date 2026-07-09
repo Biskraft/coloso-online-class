@@ -12,6 +12,9 @@ export function ConceptBar() {
   const setName = useProject((s) => s.setName);
   const setConcept = useProject((s) => s.setConcept);
   const importProject = useProject((s) => s.importProject);
+  const enterTopdown = useProject((s) => s.enterTopdown);
+  const enterMassing = useProject((s) => s.enterMassing);
+  const enterFlow = useProject((s) => s.enterFlow);
   const reset = useProject((s) => s.reset);
 
   const [editing, setEditing] = useState(false);
@@ -36,20 +39,6 @@ export function ConceptBar() {
 
   return (
     <header className="concept-bar">
-      <div className="cb-brand">
-        <span className="cb-mark" aria-hidden>
-          <svg viewBox="0 0 24 24" width="22" height="22">
-            <circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-            <circle cx="16" cy="15" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-            <line x1="11.5" y1="11.5" x2="14" y2="13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
-        </span>
-        <span className="cb-brand-text">
-          <strong>버블 아틀리에</strong>
-          <em className="caption">Bubble Atelier · Level Design Workbench</em>
-        </span>
-      </div>
-
       <div className="cb-name">
         {editing ? (
           <input
@@ -91,6 +80,18 @@ export function ConceptBar() {
       </div>
 
       <div className="cb-actions">
+        <button
+          className="cb-btn"
+          data-testid="enter-massing"
+          onClick={enterMassing}
+          title="매싱 — 등각 화이트박스 스케처 (점·선·면)"
+        >◫ 매싱</button>
+        <button
+          className="cb-btn"
+          data-testid="enter-flow"
+          onClick={enterFlow}
+          title="흐름 — 푸시·풀 흐름 실험실 (week2 push & pull)"
+        >⇝ 흐름</button>
         <button
           className="cb-undo"
           onClick={() => (window as any).__openLibrary?.()}

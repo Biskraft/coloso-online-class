@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useProject } from '../../store/project';
+import { getCurrentTheme, toggleTheme, subscribeSystemTheme, type Theme } from '../../theme';
 import './ProjectTabs.css';
 
 export function ProjectTabs() {
@@ -10,6 +11,17 @@ export function ProjectTabs() {
   const switchProject = useProject((s) => s.switchProject);
   const closeProject = useProject((s) => s.closeProject);
   const [confirmClose, setConfirmClose] = useState<string | null>(null);
+  const [theme, setLocalTheme] = useState<Theme>(getCurrentTheme());
+
+  useEffect(() => {
+    const onChange = (e: Event) => setLocalTheme((e as CustomEvent<Theme>).detail);
+    window.addEventListener('themechange', onChange);
+    const unsub = subscribeSystemTheme((t) => setLocalTheme(t));
+    return () => {
+      window.removeEventListener('themechange', onChange);
+      unsub();
+    };
+  }, []);
 
   return (
     <nav className="project-tabs" aria-label="프로젝트 탭">
@@ -51,6 +63,45 @@ export function ProjectTabs() {
       >
         +
       </button>
+
+      <button
+        type="button"
+        className="pt-theme-toggle"
+        onClick={toggleTheme}
+        title={theme === 'dark' ? '라이트 모드로' : '다크 모드로'}
+        aria-label="테마 전환"
+      >
+        {theme === 'dark' ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        )}
+      </button>
+
+      <a
+        className="pt-credit"
+        href="https://bisk.kr"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="제작 · BISK Level Design"
+      >
+        <img
+          className="pt-credit-logo"
+          src={`${import.meta.env.BASE_URL}bisk-logo.png`}
+          alt="BISK"
+          loading="lazy"
+          decoding="async"
+        />
+        <span className="pt-credit-text">
+          <strong>BISK</strong>
+          <span className="pt-credit-domain">bisk.kr</span>
+        </span>
+      </a>
 
       {confirmClose && createPortal(
         <div className="pt-confirm-backdrop" onClick={() => setConfirmClose(null)}>

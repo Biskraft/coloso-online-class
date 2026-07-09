@@ -1,12 +1,15 @@
 import type { Project } from '../types';
+import { migrateProject } from '../types';
 
 /* ─────────────────────────────────────────────────────────
    워크스페이스 영속화 — 모든 프로젝트 + 활성 ID
    localStorage 자동 저장/복원 (디바운스)
+   v1(버블 단독) 워크스페이스는 로드 시 v2(맵)로 마이그레이션
    ───────────────────────────────────────────────────────── */
 
 const KEY = 'bubble-atelier::workspace';
-const VERSION = 1;
+const VERSION = 2;
+const ACCEPTED = [1, 2];
 
 export interface Workspace {
   v: number;
@@ -19,9 +22,9 @@ export function loadWorkspace(): Workspace | null {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Workspace;
-    if (parsed.v !== VERSION) return null;
+    if (!ACCEPTED.includes(parsed.v)) return null;
     if (!Array.isArray(parsed.projects) || parsed.projects.length === 0) return null;
-    return parsed;
+    return { v: VERSION, projects: parsed.projects.map(migrateProject), currentId: parsed.currentId };
   } catch {
     return null;
   }
@@ -56,15 +59,15 @@ export function uploadJSON(): Promise<Project | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'application/json';
+    input.accept = '.json,.map.json,application/json';
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return resolve(null);
       try {
         const text = await file.text();
         const p = JSON.parse(text) as Project;
-        if (p.version !== 1) return resolve(null);
-        resolve(p);
+        if (![1, 2].includes(p.version as number)) return resolve(null);
+        resolve(migrateProject(p));
       } catch {
         resolve(null);
       }

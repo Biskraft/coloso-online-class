@@ -16,5 +16,9 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: false
+  },
+  preview: {
+    // 로컬 확인용 서버 — 브라우저가 옛 index.html을 캐시해 구버전이 보이는 일 방지
+    headers: { 'Cache-Control': 'no-store' }
   }
 });
