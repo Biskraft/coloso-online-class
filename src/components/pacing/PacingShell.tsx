@@ -3,6 +3,7 @@ import type * as React from 'react';
 import { useProject } from '../../store/project';
 import { usePacing, undoPacing, redoPacing } from '../../store/pacing';
 import { PacingCanvas, PacingMapPanel, segColor, type PacTool } from './PacingCanvas';
+import { PacingSide } from './PacingSide';
 import type { PacingDoc } from '../../types';
 import '../topdown/TopdownShell.css';
 import './PacingShell.css';
@@ -256,22 +257,7 @@ export function PacingShell() {
             onSelectSeg={setSelSeg}
             onStatus={setStatus}
           />
-          <div className="pac-side">
-            <div className="pac-side-title">구간 — 클릭해 핀 대상 선택</div>
-            <ul className="pac-seg-list">
-              {doc.segments.map((s) => (
-                <li
-                  key={s.id}
-                  className={`pac-seg-item ${s.id === selSeg ? 'is-active' : ''}`}
-                  onClick={() => setSelSeg(s.id)}
-                >
-                  <span className="pac-seg-swatch" style={{ background: segColor(doc, s.id) }} />
-                  {s.name}
-                </li>
-              ))}
-            </ul>
-            <p className="pac-side-hint">핀(N) 도구로 아래 맵을 클릭하면 선택된 구간에 핀이 붙습니다.</p>
-          </div>
+          <PacingSide doc={doc} selectedSegId={selSeg} />
         </div>
 
         <div className="pac-map">
