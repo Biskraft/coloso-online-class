@@ -183,8 +183,8 @@ export function PacingCanvas({ doc, tool, mapMode: _mapMode, selSeg, onSelectSeg
     if (svg && svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
   };
 
-  /** 점 원 pointerdown — Alt+클릭은 즉시 삭제, 아니면 드래그 시작 */
-  const handlePointPointerDown = (id: string) => (e: React.PointerEvent<SVGCircleElement>) => {
+  /** 점 그룹 pointerdown — Alt+클릭은 즉시 삭제, 아니면 드래그 시작 */
+  const handlePointPointerDown = (id: string) => (e: React.PointerEvent<SVGGElement>) => {
     e.stopPropagation();
     if (e.altKey) {
       removePoint(doc.id, id);
@@ -197,7 +197,7 @@ export function PacingCanvas({ doc, tool, mapMode: _mapMode, selSeg, onSelectSeg
     svg.setPointerCapture(e.pointerId);
   };
 
-  const handlePointContextMenu = (id: string) => (e: React.MouseEvent<SVGCircleElement>) => {
+  const handlePointContextMenu = (id: string) => (e: React.MouseEvent<SVGGElement>) => {
     e.preventDefault();
     e.stopPropagation();
     removePoint(doc.id, id);
@@ -313,6 +313,7 @@ export function PacingCanvas({ doc, tool, mapMode: _mapMode, selSeg, onSelectSeg
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="xMidYMid meet"
         className="pac-svg"
         data-testid="pacing-canvas"
         onPointerDown={handleSvgPointerDown}
@@ -392,28 +393,8 @@ export function PacingCanvas({ doc, tool, mapMode: _mapMode, selSeg, onSelectSeg
         {/* 페이싱 곡선 */}
         <path d={path} stroke="var(--ochre)" fill="none" strokeWidth={2.5} />
 
-        {/* 포인트 — 히트 원(투명, r16) + 표시 원(r6) */}
-        {doc.points.map((p) => {
-          const gx = globalX(p.segId, p.t, doc.segments);
-          const cx = px(gx);
-          const cy = py(p.tension);
-          return (
-            <g key={p.id} className="pac-point">
-              <circle
-                cx={cx}
-                cy={cy}
-                r={16}
-                fill="transparent"
-                onPointerDown={handlePointPointerDown(p.id)}
-                onContextMenu={handlePointContextMenu(p.id)}
-                style={{ cursor: 'grab', touchAction: 'none' }}
-              />
-              <circle cx={cx} cy={cy} r={6} fill="var(--paper-50)" stroke="var(--ochre)" strokeWidth={2} />
-            </g>
-          );
-        })}
-
-        {/* 표기(marker) — 산·골·번개·깃발. 곡선 위 py(tension) 지점에 앵커, 아이콘은 위/아래 오프셋 */}
+        {/* 표기(marker) — 산·골·번개·깃발. 곡선 위 py(tension) 지점에 앵커, 아이콘은 위/아래 오프셋.
+            점보다 먼저 그려 점 히트존이 표기 히트존 위에 오도록 함(표기가 점을 가리면 점을 못 잡던 결함 수정). */}
         {doc.markers.map((m) => {
           const cx = px(m.at);
           const cy = py(m.tension);
@@ -436,6 +417,28 @@ export function PacingCanvas({ doc, tool, mapMode: _mapMode, selSeg, onSelectSeg
                 strokeWidth={1}
               />
               {renderMarkerIcon(m.kind, cx, cy)}
+            </g>
+          );
+        })}
+
+        {/* 포인트 — 표기 뒤(위)에 그려 항상 최상단 히트 대상. 히트 원(투명, r20) + 표시 원(r6).
+            핸들러는 반드시 <g>에 둔다: 정중앙(가시 r6 원) 클릭도 버블링으로 잡히게 함
+            (안쪽 히트 원에만 핸들러를 두면 r6가 중앙 클릭을 가로채 드래그가 간헐적으로 안 됨).
+            클릭=드래그는 도구와 무관(빈 곳 클릭의 새 점 생성보다 stopPropagation으로 우선). */}
+        {doc.points.map((p) => {
+          const gx = globalX(p.segId, p.t, doc.segments);
+          const cx = px(gx);
+          const cy = py(p.tension);
+          return (
+            <g
+              key={p.id}
+              className="pac-point"
+              onPointerDown={handlePointPointerDown(p.id)}
+              onContextMenu={handlePointContextMenu(p.id)}
+              style={{ cursor: 'grab', touchAction: 'none' }}
+            >
+              <circle cx={cx} cy={cy} r={20} fill="transparent" />
+              <circle cx={cx} cy={cy} r={6} fill="var(--paper-50)" stroke="var(--ochre)" strokeWidth={2} />
             </g>
           );
         })}

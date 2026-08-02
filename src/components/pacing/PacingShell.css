@@ -18,6 +18,12 @@
   min-height: 0;
 }
 
+/* 곡선 영역(pac-body 직속 pac-main)은 남는 세로 공간을 채워 곡선을 최대한 크게.
+   맵 영역(.pac-map)은 자기 높이를 유지 → 곡선이 커지고 맵은 고정. */
+.pac-body > .pac-main {
+  flex: 1 1 0;
+}
+
 .pac-canvas {
   flex: 1;
   min-width: 0;
@@ -28,9 +34,12 @@
   overflow: hidden;
 }
 
+/* 곡선 SVG는 캔버스 박스 '안에' 항상 맞춘다(preserveAspectRatio meet).
+   height:auto면 넓은 화면에서 SVG 자연 높이(너비×비율)가 박스 높이를 넘겨
+   overflow:hidden에 하단(낮은 긴장 구간·구간 이름)이 잘리던 문제를 막는다. */
 .pac-canvas svg {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
   touch-action: none;
   user-select: none;

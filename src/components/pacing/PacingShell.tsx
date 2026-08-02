@@ -7,6 +7,7 @@ import { downloadJSON } from '../../store/persistence';
 import { PacingCanvas, PacingMapPanel, segColor, type PacTool } from './PacingCanvas';
 import { PacingSide } from './PacingSide';
 import { PACING_PRESETS } from './pacing-presets';
+import { topdownToDataURL } from '../topdown/topdown-utils';
 import type { Project } from '../../types';
 import '../topdown/TopdownShell.css';
 import './PacingShell.css';
@@ -27,6 +28,7 @@ const TOOLS: { id: PacTool; label: string; key: string; title: string }[] = [
 
 export function PacingShell() {
   const exitPacing = useProject((s) => s.exitPacing);
+  const projects = useProject((s) => s.projects);
   const docsAll = usePacing((s) => s.docs);
   const activeId = usePacing((s) => s.currentId);
   const setActive = usePacing((s) => s.setActive);
@@ -145,6 +147,24 @@ export function PacingShell() {
     fr.readAsDataURL(file);
   };
 
+  // 이전에 만든 평면도(Top-down) 목록 — 모든 프로젝트의 topdowns를 평탄화
+  const topdownEntries = projects.flatMap((p) =>
+    p.topdowns.map((t) => ({ id: t.id, label: `${p.name} · ${t.name}`, doc: t })),
+  );
+
+  /** 내 평면도에서 불러오기 — 선택한 Top-down 문서를 이미지로 렌더해 배경 맵으로 설정 */
+  const handleTopdownPick = (topId: string) => {
+    const entry = topdownEntries.find((e) => e.id === topId);
+    if (!entry) return;
+    try {
+      const { dataUrl, w, h } = topdownToDataURL(entry.doc);
+      setMap(doc.id, { dataUrl, w, h });
+      setStatus(`평면도 불러옴 — ${entry.label}`);
+    } catch (e) {
+      setStatus(`평면도 불러오기 실패: ${(e as Error).message ?? e}`);
+    }
+  };
+
   return (
     <div className="td-shell" data-testid="pacing-shell">
       {/* ── 상단 바 1행 — 탭 · 도구 · undo ── */}
@@ -206,8 +226,8 @@ export function PacingShell() {
           ))}
           <button
             className="td-btn"
-            onClick={() => addSegment(doc.id)}
-            title="구간 추가 — 곡선 가로축에 새 구간을 덧붙인다"
+            onClick={() => setSelSeg(addSegment(doc.id))}
+            title="구간 추가 — 곡선 가로축에 새 구간을 덧붙이고 바로 선택(오른쪽에서 편집)"
           >구간+</button>
         </div>
 
@@ -238,11 +258,26 @@ export function PacingShell() {
             style={{ display: 'none' }}
             onChange={handleMapFile}
           />
+          <select
+            className="td-select"
+            value=""
+            data-testid="pac-map-topdown"
+            disabled={topdownEntries.length === 0}
+            onChange={(e) => { if (e.target.value) handleTopdownPick(e.target.value); e.target.value = ''; }}
+            title="내 평면도에서 — 이전에 만든 Top-down 맵을 배경으로 불러온다"
+          >
+            <option value="">
+              {topdownEntries.length === 0 ? '평면도 없음' : '내 평면도에서…'}
+            </option>
+            {topdownEntries.map((e) => (
+              <option key={e.id} value={e.id}>{e.label}</option>
+            ))}
+          </select>
           <button
             className="td-btn"
             onClick={() => mapInputRef.current?.click()}
-            title="맵 불러오기 — 이 페이싱 문서의 배경 맵 이미지를 불러온다"
-          >맵 불러오기</button>
+            title="맵 불러오기 — 외부 이미지 파일을 배경 맵으로 불러온다"
+          >이미지 파일…</button>
         </div>
 
         <div className="td-spacer" />
@@ -294,7 +329,7 @@ export function PacingShell() {
             onSelectSeg={setSelSeg}
             onStatus={setStatus}
           />
-          <PacingSide doc={doc} selectedSegId={selSeg} />
+          <PacingSide doc={doc} selectedSegId={selSeg} onSelectSeg={setSelSeg} />
         </div>
 
         <div className="pac-map">

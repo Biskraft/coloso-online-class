@@ -14,7 +14,7 @@ interface PacingStore {
   addDoc: (name?: string, seed?: Partial<PacingDoc>) => string;
   removeDoc: (id: string) => void;
   renameDoc: (id: string, name: string) => void;
-  addSegment: (docId: string) => void;
+  addSegment: (docId: string) => string;
   renameSegment: (docId: string, segId: string, name: string) => void;
   setSegmentWidth: (docId: string, segId: string, width: number) => void;
   removeSegment: (docId: string, segId: string) => void;
@@ -74,7 +74,11 @@ export const usePacing = create<PacingStore>()(
           return { docs: rest, currentId: s.currentId === id ? rest[0].id : s.currentId };
         }),
         renameDoc: (id, name) => mutDoc(id, (d) => ({ ...d, name })),
-        addSegment: (docId) => mutDoc(docId, (d) => ({ ...d, segments: [...d.segments, { id: uid('pc-s'), name: `구간 ${d.segments.length + 1}`, width: 1 }] })),
+        addSegment: (docId) => {
+          const id = uid('pc-s');
+          mutDoc(docId, (d) => ({ ...d, segments: [...d.segments, { id, name: `구간 ${d.segments.length + 1}`, width: 1 }] }));
+          return id;
+        },
         renameSegment: (docId, segId, name) => mutDoc(docId, (d) => ({ ...d, segments: d.segments.map((s) => s.id === segId ? { ...s, name } : s) })),
         setSegmentWidth: (docId, segId, width) => mutDoc(docId, (d) => ({ ...d, segments: d.segments.map((s) => s.id === segId ? { ...s, width: Math.max(0.25, width) } : s) })),
         removeSegment: (docId, segId) => mutDoc(docId, (d) => d.segments.length <= 1 ? d : ({
