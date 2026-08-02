@@ -77,9 +77,10 @@ test('드롭 → 배경 이미지 배치 + 자동저장', async ({ page }) => {
   expect(im.y).toBeCloseTo(128, 0);
   expect(im.src.startsWith('data:image/')).toBe(true);
 
-  // Esc(선택 해제) → Esc(버블 복귀) → 재진입해도 유지
+  // Esc(선택 해제) → Esc(확인창) → 나가기 → 재진입해도 유지
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
+  await page.locator('[data-testid="td-exit-ok"]').click();
   await expect(page.locator('.canvas-shell')).toBeVisible();
   await page.locator('[data-testid="enter-topdown"]').click();
   await page.waitForTimeout(500);

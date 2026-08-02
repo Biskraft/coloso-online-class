@@ -798,22 +798,38 @@ export function drawDoor(ctx: CanvasRenderingContext2D, d: DoorObj, o: RenderOpt
 
 /* ─── PNG 렌더/내보내기 ─── */
 
+/** 내보내기 긴 변 (px) — 여백 포함. 정사각 작업 범위면 정확히 이 값의 정사각형이 나온다 */
+export const TD_EXPORT_MAX_PX = 2048;
+
+export interface TdRenderOut {
+  /** 배경(종이톤)을 칠하지 않는다 — PNG 알파 투명 */
+  transparent?: boolean;
+  /** 네 모서리에 ㄱ자 경계 표시 */
+  cornerMarks?: boolean;
+}
+
 /** 평면도 문서를 오프스크린 캔버스에 렌더(그리드·버블 오버레이 제외, 캡션 포함).
  *  PNG 다운로드(exportTopdownPNG)와 dataURL 추출(topdownToDataURL)이 공유하는 코어. */
-export function renderTopdownCanvas(doc: TopdownDoc): HTMLCanvasElement {
+export function renderTopdownCanvas(doc: TopdownDoc, out: TdRenderOut = {}): HTMLCanvasElement {
   const [cols, rows] = doc.grid;
-  const cellPx = Math.max(4, Math.min(32, Math.floor(4096 / Math.max(cols, rows))));
-  const pad = Math.round(cellPx * 2);
-  const W = cols * cellPx + pad * 2;
-  const H = rows * cellPx + pad * 2;
+  // 긴 변 = cellPx * (긴쪽 셀 수 + 여백 4셀)이 TD_EXPORT_MAX_PX가 되도록 셀 크기를 역산.
+  // 셀 크기를 정수로 고정하지 않아야 출력 크기가 정확히 맞는다
+  const pad2 = 4;                                   // 여백 = 좌우 각 2셀
+  const cellPx = TD_EXPORT_MAX_PX / (Math.max(cols, rows) + pad2);
+  const pad = cellPx * 2;
+  const W = Math.round(cols * cellPx + pad * 2);
+  const H = Math.round(rows * cellPx + pad * 2);
   const cv = document.createElement('canvas');
   cv.width = W;
   cv.height = H;
   const ctx = cv.getContext('2d')!;
   const c = readTdColors();
 
-  ctx.fillStyle = c.paper;
-  ctx.fillRect(0, 0, W, H);
+  // 투명 배경이면 종이톤을 깔지 않는다 (바닥 채움은 그대로 불투명하게 남는다)
+  if (!out.transparent) {
+    ctx.fillStyle = c.paper;
+    ctx.fillRect(0, 0, W, H);
+  }
   ctx.save();
   ctx.translate(pad, pad);
   const floorMerged = mergeGeo(doc.geo);
@@ -843,6 +859,24 @@ export function renderTopdownCanvas(doc: TopdownDoc): HTMLCanvasElement {
     `${doc.name} — ${cols}×${rows} · 1셀=1m · ${meters}m (${meters * 100}uu) · 벽 ${doc.style.wallM}m`,
     pad, Math.round(pad / 2),
   );
+
+  // 네 모서리 ㄱ자 표시 — 투명 배경에서 도면 범위를 알아볼 수 있게 하는 기준선
+  if (out.cornerMarks) {
+    const long = Math.max(W, H);
+    const inset = Math.round(long * 0.02);
+    const arm = Math.round(long * 0.05);
+    ctx.strokeStyle = c.border;
+    ctx.lineWidth = Math.max(2, Math.round(long * 0.0035));
+    ctx.lineCap = 'butt';
+    ctx.lineJoin = 'miter';
+    const x0 = inset, y0 = inset, x1 = W - inset, y1 = H - inset;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0 + arm); ctx.lineTo(x0, y0); ctx.lineTo(x0 + arm, y0);
+    ctx.moveTo(x1 - arm, y0); ctx.lineTo(x1, y0); ctx.lineTo(x1, y0 + arm);
+    ctx.moveTo(x1, y1 - arm); ctx.lineTo(x1, y1); ctx.lineTo(x1 - arm, y1);
+    ctx.moveTo(x0 + arm, y1); ctx.lineTo(x0, y1); ctx.lineTo(x0, y1 - arm);
+    ctx.stroke();
+  }
   return cv;
 }
 
@@ -853,7 +887,7 @@ export function topdownToDataURL(doc: TopdownDoc): { dataUrl: string; w: number;
 }
 
 export function exportTopdownPNG(doc: TopdownDoc, filename?: string) {
-  const cv = renderTopdownCanvas(doc);
+  const cv = renderTopdownCanvas(doc, { transparent: true, cornerMarks: true });
   cv.toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);

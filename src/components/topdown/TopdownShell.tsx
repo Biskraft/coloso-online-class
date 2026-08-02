@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { TOPDOWN_GRID_PRESETS, type MarkerKind, type ZoneKind, type StrokeColor } from '../../types';
 import { useProject, undoProject, redoProject } from '../../store/project';
 import { downloadJSON } from '../../store/persistence';
@@ -49,6 +50,7 @@ export function TopdownShell() {
   const [strokeColor, setStrokeColor] = useState<StrokeColor>('moss');
   const [strokeWidth, setStrokeWidth] = useState(2);          // m — 동선 두께
   const [calibrating, setCalibrating] = useState(false);   // 오버레이 조정 모드
+  const [confirmExit, setConfirmExit] = useState(false);   // Esc 나가기 확인창
   const [history, setHistory] = useState({ past: 0, future: 0 });
 
   /* undo/redo 가능 카운트 구독 */
@@ -90,6 +92,12 @@ export function TopdownShell() {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey) return;
+      // Esc — 버블로 나가기 확인. 캔버스가 먼저 선택 해제·작도 취소를 소비하고
+      // stopPropagation 하므로, 더 되돌릴 게 없을 때만 여기까지 온다
+      if (e.key === 'Escape') {
+        setConfirmExit((open) => !open);   // 열려 있으면 Esc가 취소로 동작
+        return;
+      }
       const k = e.key.toUpperCase();
       const t = TOOLS.find((x) => x.key === k);
       if (t) { chooseTool(t.id); return; }
@@ -530,6 +538,36 @@ export function TopdownShell() {
         <span className="td-status-hover">{status}</span>
         <span className="td-status-hint">휠: 줌 · 스페이스+드래그: 이동 · E: 빼기 · F: 러프 · Ctrl+Z: 실행취소</span>
       </div>
+
+      {/* Esc 나가기 확인 — 작도 중 실수로 눌러 화면이 바뀌는 것을 막는다 */}
+      {confirmExit && createPortal(
+        <div className="pt-confirm-backdrop" onClick={() => setConfirmExit(false)}>
+          <div
+            className="pt-confirm"
+            data-testid="td-exit-confirm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="pt-confirm-msg">
+              평면도를 닫고 <strong>버블 다이어그램</strong>으로 돌아갈까요?<br />
+              작업 내용은 그대로 저장되어 있습니다.
+            </p>
+            <div className="pt-confirm-actions">
+              <button
+                className="pt-btn"
+                data-testid="td-exit-cancel"
+                autoFocus
+                onClick={() => setConfirmExit(false)}
+              >취소</button>
+              <button
+                className="pt-btn pt-btn--danger"
+                data-testid="td-exit-ok"
+                onClick={() => { setConfirmExit(false); exitTopdown(); }}
+              >나가기</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

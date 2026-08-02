@@ -104,8 +104,9 @@ test('내 평면도에서 맵 불러오기 → 배경 맵으로 설정', async (
   await page.mouse.up();
   await page.waitForTimeout(300);
 
-  // 2) 버블 복귀 → 페이싱 진입
+  // 2) 버블 복귀(Esc → 확인창 → 나가기) → 페이싱 진입
   await page.keyboard.press('Escape');
+  await page.getByTestId('td-exit-ok').click();
   await page.getByTestId('enter-pacing').click();
   await expect(page.getByTestId('pacing-shell')).toBeVisible();
 

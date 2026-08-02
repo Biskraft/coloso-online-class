@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 
 /* 제도판(탑다운) — Scrawl 지오메트리 방식 E2E */
 
@@ -39,13 +40,95 @@ test('사각형 방 드래그 → 자동저장 → 복귀 후 유지', async ({ 
   expect(td.geo[0].op).toBe('union');
   expect(td.geo[0].poly[0].length).toBe(4);
 
-  // Esc → 버블 복귀 → 재진입해도 도형 유지
+  // Esc → 확인창 → 나가기 → 재진입해도 도형 유지
   await page.keyboard.press('Escape');
+  await page.locator('[data-testid="td-exit-ok"]').click();
   await expect(page.locator('.canvas-shell')).toBeVisible();
   await page.locator('[data-testid="enter-topdown"]').click();
   await page.waitForTimeout(600);
   ws = await readWorkspace(page);
   expect(ws.projects[0].topdowns[0].geo.length).toBe(1);
+});
+
+test('Esc 나가기 — 확인창 취소는 평면도에 머물고, 나가기만 버블로', async ({ page }) => {
+  const { cx, cy } = await enterAndBox(page);
+
+  // 작도 중 Esc는 확인창까지 오지 않는다 (진행 중인 점 취소가 먼저 소비)
+  await page.locator('.td-tool', { hasText: '다각형' }).click();
+  await page.mouse.click(cx - 40, cy - 40);
+  await page.mouse.click(cx + 40, cy - 40);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-testid="td-exit-confirm"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="topdown-shell"]')).toBeVisible();
+
+  // 더 취소할 게 없으면 확인창이 뜬다
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-testid="td-exit-confirm"]')).toBeVisible();
+
+  // 취소 → 평면도 유지
+  await page.locator('[data-testid="td-exit-cancel"]').click();
+  await expect(page.locator('[data-testid="td-exit-confirm"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="topdown-shell"]')).toBeVisible();
+
+  // 확인창에서 Esc → 취소로 동작
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-testid="td-exit-confirm"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-testid="td-exit-confirm"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="topdown-shell"]')).toBeVisible();
+
+  // 나가기 → 버블 복귀
+  await page.keyboard.press('Escape');
+  await page.locator('[data-testid="td-exit-ok"]').click();
+  await expect(page.locator('.canvas-shell')).toBeVisible();
+});
+
+test('PNG 내보내기 — 2048×2048로 나온다', async ({ page }) => {
+  const { cx, cy } = await enterAndBox(page);
+  await page.mouse.move(cx - 100, cy - 70);
+  await page.mouse.down();
+  await page.mouse.move(cx + 60, cy + 50, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('.td-group .td-btn', { hasText: 'PNG' }).click(),
+  ]);
+  const path = await download.path();
+  const buf = await readFile(path!);
+
+  // PNG IHDR — 8바이트 시그니처 + 4길이 + 4타입 뒤에 width/height가 빅엔디안 4바이트씩
+  expect(buf.subarray(1, 4).toString()).toBe('PNG');
+  expect(buf.readUInt32BE(16)).toBe(2048);
+  expect(buf.readUInt32BE(20)).toBe(2048);
+
+  // 배경 투명 + 네 모서리 ㄱ자 표시 확인 — 실제 픽셀을 읽는다
+  const probe = await page.evaluate(async (data) => {
+    const img = new Image();
+    await new Promise((r) => { img.onload = r; img.src = 'data:image/png;base64,' + data; });
+    const cv = document.createElement('canvas');
+    cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+    const ctx = cv.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
+    const px = (x: number, y: number) => Array.from(ctx.getImageData(x, y, 1, 1).data);
+    // 모서리 표시 주변 사각 영역에서 불투명 잉크 픽셀 수
+    const inkNear = (x: number, y: number) => {
+      const d = ctx.getImageData(x - 70, y - 70, 140, 140).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i + 3]! > 200 && d[i]! < 120) n++;
+      return n;
+    };
+    const W = cv.width, H = cv.height;
+    return {
+      // 캔버스 절대 모서리 = 아무것도 없는 자리 → 완전 투명
+      cornerAlpha: [px(0, 0)[3], px(W - 1, 0)[3], px(0, H - 1)[3], px(W - 1, H - 1)[3]],
+      marks: [inkNear(41, 41), inkNear(W - 41, 41), inkNear(41, H - 41), inkNear(W - 41, H - 41)],
+    };
+  }, buf.toString('base64'));
+
+  expect(probe.cornerAlpha).toEqual([0, 0, 0, 0]);
+  for (const n of probe.marks) expect(n).toBeGreaterThan(500);
 });
 
 test('빼기 모드(E) → subtract 도형 → 실행취소', async ({ page }) => {

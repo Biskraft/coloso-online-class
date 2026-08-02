@@ -42,10 +42,8 @@ export function App() {
       const inTopdown = st.mode !== 'bubble';
 
       if (e.key === 'Escape') {
-        if (st.mode === 'topdown') {
-          st.exitTopdown();
-          return;
-        }
+        // 평면도는 TopdownShell이 확인창을 띄우고 직접 처리한다
+        if (st.mode === 'topdown') return;
         if (st.mode === 'massing') {
           st.exitMassing();
           return;
