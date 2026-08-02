@@ -1,7 +1,7 @@
 import pc from 'polygon-clipping';
 import type {
   GeoPoly, GeoShape, StructShape, ZoneObj, ZoneKind, DoorObj, StairObj, TextObj,
-  MarkerObj, MarkerKind, TopdownDoc,
+  MarkerObj, MarkerKind, TopdownDoc, TdImage, StrokeObj, StrokeColor,
 } from '../../types';
 
 /* ─────────────────────────────────────────────────────────
@@ -78,28 +78,49 @@ export function regularPoly(cx: number, cy: number, r: number, sides: number): G
 
 /** 복도 — 폴리라인을 폭 w로 두껍게. 끝과 꺾임 모두 각지게:
     각 세그먼트를 양 끝으로 half만큼 연장한 사각형들의 union (square cap/joint) */
+/** 원판(정n각형) — 복도 꺾임을 둥글게 메운다. 반지름이 클수록 분할을 늘린다 */
+function discPoly(cx: number, cy: number, r: number): GeoPoly {
+  const n = Math.max(16, Math.min(64, Math.round(r * 12)));
+  const ring: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    ring.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+  }
+  return [ring];
+}
+
 export function corridorPoly(points: number[][], w: number): GeoPoly | null {
   if (points.length < 2) return null;
   const half = w / 2;
   let acc: MultiPoly = [];
+  const add = (poly: GeoPoly) => {
+    acc = (acc.length
+      ? pc.union(acc as any, [poly] as any)
+      : pc.union([poly] as any)) as MultiPoly;
+  };
   try {
     for (let i = 0; i < points.length - 1; i++) {
       const [x1, y1] = points[i]!;
       const [x2, y2] = points[i + 1]!;
-      const dx = x2 - x1, dy = y2 - y1;
+      const dx = x2! - x1!, dy = y2! - y1!;
       const len = Math.hypot(dx, dy);
       if (len < 1e-6) continue;
       const ux = dx / len, uy = dy / len;
       const nx = -uy * half, ny = ux * half;
-      // 양 끝 half 연장 → 끝은 사각 마감, 꺾임은 연장 겹침이 메움
-      const ax = x1 - ux * half, ay = y1 - uy * half;
-      const bx = x2 + ux * half, by = y2 + uy * half;
-      const quad: GeoPoly = [[
+      // 바깥 끝만 half 연장(사각 마감 — 방 안으로 파고들게).
+      // 중간 꺾임은 연장하지 않는다. 연장분이 겹치면서 뿔처럼 튀어나오던 원인.
+      const sExt = i === 0 ? half : 0;
+      const eExt = i === points.length - 2 ? half : 0;
+      const ax = x1! - ux * sExt, ay = y1! - uy * sExt;
+      const bx = x2! + ux * eExt, by = y2! + uy * eExt;
+      add([[
         [ax + nx, ay + ny], [bx + nx, by + ny], [bx - nx, by - ny], [ax - nx, ay - ny],
-      ]];
-      acc = (acc.length
-        ? pc.union(acc as any, [quad] as any)
-        : pc.union([quad] as any)) as MultiPoly;
+      ]]);
+    }
+    // 내부 꺾임점을 원판으로 메운다 → 바깥 모서리가 반지름 half의 호로 둥글어진다
+    for (let i = 1; i < points.length - 1; i++) {
+      const [px, py] = points[i]!;
+      add(discPoly(px!, py!, half));
     }
   } catch {
     return null;
@@ -284,6 +305,124 @@ export function hitText(x: number, y: number, texts: TextObj[]): string | null {
   return null;
 }
 
+/* ─── 동선 레이어 — 자유 드로잉 ─── */
+
+/** 팔레트 순서 = 툴바 버튼 순서. 라벨은 세계관 색 문법을 따른다 */
+export const STROKE_COLORS: { key: StrokeColor; label: string }[] = [
+  { key: 'moss',      label: '의도 동선' },
+  { key: 'ochre',     label: '이탈 동선' },
+  { key: 'brick',     label: '위협·추격' },
+  { key: 'blueprint', label: '보조·시선' },
+  { key: 'ink',       label: '잉크' },
+];
+
+/** 선 두께 프리셋 (m) */
+export const STROKE_WIDTHS = [1, 2, 4, 8];
+
+export function strokeColorOf(c: TdColors, key: StrokeColor): string {
+  return key === 'ink' ? c.wall : c[key];
+}
+
+/** 점 → 선분 최단거리 (그리드 단위) */
+function distToSeg(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const dx = bx - ax, dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(px - ax, py - ay);
+  let t = ((px - ax) * dx + (py - ay) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+/** 획의 바운딩 박스 (마퀴 판정용) */
+export function strokeBBox(s: StrokeObj) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of s.pts) {
+    x0 = Math.min(x0, x!); x1 = Math.max(x1, x!);
+    y0 = Math.min(y0, y!); y1 = Math.max(y1, y!);
+  }
+  const pad = s.width / 2;
+  return { x0: x0 - pad, y0: y0 - pad, x1: x1 + pad, y1: y1 + pad };
+}
+
+/** 점이 획 위에 있는가 — 선 두께 절반 + 여유. 나중에 그린 획부터 판정 */
+export function hitStroke(x: number, y: number, strokes: StrokeObj[], tol = 0.4): string | null {
+  for (let i = strokes.length - 1; i >= 0; i--) {
+    const s = strokes[i]!;
+    const r = s.width / 2 + tol;
+    if (s.pts.length === 1) {
+      const [px, py] = s.pts[0]! as [number, number];
+      if (Math.hypot(x - px, y - py) <= r) return s.id;
+      continue;
+    }
+    for (let j = 1; j < s.pts.length; j++) {
+      const a = s.pts[j - 1]!, b = s.pts[j]!;
+      if (distToSeg(x, y, a[0]!, a[1]!, b[0]!, b[1]!) <= r) return s.id;
+    }
+  }
+  return null;
+}
+
+/** 동선 스트로크 렌더 — 도면 주석이라 바닥 클립 없이 그대로 얹는다 */
+export function drawStrokes(
+  ctx: CanvasRenderingContext2D,
+  strokes: StrokeObj[],
+  o: { CELL: number; zoomK: number; colors: TdColors },
+) {
+  const { CELL } = o;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const s of strokes) {
+    if (!s.pts.length) continue;
+    const color = strokeColorOf(o.colors, s.color);
+    // 실척 두께 + 화면 최소 두께 하한 (줌 아웃에서 선이 사라지지 않게)
+    const w = Math.max(s.width * CELL, 1.2 / o.zoomK);
+    if (s.pts.length === 1) {
+      const [x, y] = s.pts[0]! as [number, number];
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x * CELL, y * CELL, w / 2, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = w;
+    ctx.beginPath();
+    // 손그림 느낌 — 각 점을 제어점으로, 이웃 중점을 통과시키는 2차 곡선
+    const p = s.pts;
+    ctx.moveTo(p[0]![0]! * CELL, p[0]![1]! * CELL);
+    for (let i = 1; i < p.length - 1; i++) {
+      const mx = (p[i]![0]! + p[i + 1]![0]!) / 2;
+      const my = (p[i]![1]! + p[i + 1]![1]!) / 2;
+      ctx.quadraticCurveTo(p[i]![0]! * CELL, p[i]![1]! * CELL, mx * CELL, my * CELL);
+    }
+    const last = p[p.length - 1]!;
+    ctx.lineTo(last[0]! * CELL, last[1]! * CELL);
+    ctx.stroke();
+  }
+}
+
+/* ─── 배경 참조 이미지 ─── */
+
+/** 이미지 네 모서리를 도형과 같은 폴리곤 표현으로 — 선택 테두리·변환 핸들이 공용으로 쓴다 */
+export function tdImagePoly(im: TdImage): GeoPoly {
+  const hw = im.w / 2, hh = im.h / 2;
+  const c = Math.cos(im.rot), s = Math.sin(im.rot);
+  const pt = (lx: number, ly: number): number[] => [im.x + lx * c - ly * s, im.y + lx * s + ly * c];
+  return [[pt(-hw, -hh), pt(hw, -hh), pt(hw, hh), pt(-hw, hh)]];
+}
+
+/** 점이 이미지(회전 사각형) 안에 있는가 — 위에 얹힌 것부터 판정 */
+export function hitTdImage(x: number, y: number, images: TdImage[]): string | null {
+  for (let i = images.length - 1; i >= 0; i--) {
+    const im = images[i]!;
+    const c = Math.cos(-im.rot), s = Math.sin(-im.rot);
+    const dx = x - im.x, dy = y - im.y;
+    const lx = dx * c - dy * s, ly = dx * s + dy * c;
+    if (Math.abs(lx) <= im.w / 2 && Math.abs(ly) <= im.h / 2) return im.id;
+  }
+  return null;
+}
+
 /* ─── 마커 ─── */
 
 export const MARKER_R = 0.75;   // 마커 반지름 (셀) — 지름 1.5셀 실척 고정
@@ -335,6 +474,7 @@ export interface TdColors {
   wall: string;      // 벽 잉크
   gridSoft: string;
   gridHard: string;
+  gridMajor: string;  // 10m 기준선
   border: string;
   shadow: string;
   hatch: string;
@@ -354,6 +494,7 @@ export function readTdColors(): TdColors {
     wall: v('--ink-900', '#1A1814'),
     gridSoft: v('--grid-line-soft', 'rgba(44,95,124,0.06)'),
     gridHard: v('--grid-line-hard', 'rgba(44,95,124,0.10)'),
+    gridMajor: v('--grid-line-major', 'rgba(44,95,124,0.17)'),
     border: v('--ink-900', '#1A1814'),
     shadow: 'rgba(26,24,20,0.28)',
     hatch: 'rgba(42,37,32,0.35)',
@@ -419,6 +560,9 @@ export function gridFade(v: number, a: number, b: number): number {
   return Math.max(0, Math.min(1, (v - a) / (b - a)));
 }
 
+/** 기준선 간격 (셀 = m). 도면 관례상 10m마다 한 단계 진한 선 */
+export const GRID_MAJOR = 10;
+
 export function renderScrawl(
   ctx: CanvasRenderingContext2D,
   merged: MultiPoly,
@@ -483,8 +627,10 @@ export function renderScrawl(
   };
   const a1 = gridFade(px, 3.5, 7);
   if (a1 > 0) { ctx.globalAlpha = a1; lines(1, c.gridSoft, 1); }
-  const a4 = gridFade(px, 1.2, 2.4);
-  if (a4 > 0) { ctx.globalAlpha = a4; lines(4, c.gridHard, 1); }
+  // 10m 기준선 — 바닥 밖 전역 그리드와 같은 위계. 화면 간격(px * 10) 기준이라
+  // 1m 격자가 사라진 뒤에도 남아 축척 감각을 유지한다.
+  const aM = gridFade(px * GRID_MAJOR, 6, 12);
+  if (aM > 0) { ctx.globalAlpha = aM; lines(GRID_MAJOR, c.gridMajor, 1); }
   ctx.globalAlpha = 1;
   ctx.restore();
 
@@ -650,9 +796,11 @@ export function drawDoor(ctx: CanvasRenderingContext2D, d: DoorObj, o: RenderOpt
   ctx.restore();
 }
 
-/* ─── PNG 내보내기 ─── */
+/* ─── PNG 렌더/내보내기 ─── */
 
-export function exportTopdownPNG(doc: TopdownDoc, filename?: string) {
+/** 평면도 문서를 오프스크린 캔버스에 렌더(그리드·버블 오버레이 제외, 캡션 포함).
+ *  PNG 다운로드(exportTopdownPNG)와 dataURL 추출(topdownToDataURL)이 공유하는 코어. */
+export function renderTopdownCanvas(doc: TopdownDoc): HTMLCanvasElement {
   const [cols, rows] = doc.grid;
   const cellPx = Math.max(4, Math.min(32, Math.floor(4096 / Math.max(cols, rows))));
   const pad = Math.round(cellPx * 2);
@@ -676,10 +824,15 @@ export function exportTopdownPNG(doc: TopdownDoc, filename?: string) {
     hatch: doc.style.hatch, shadow: doc.style.shadow, colors: c,
     doors: doc.doors, stairs: doc.stairs, texts: doc.texts,
     markers: doc.markers,
-    structHigh: clipToFloor(mergeGeo(st.filter((x) => !x.low)), floorMerged),
-    structLow: clipToFloor(mergeGeo(st.filter((x) => x.low)), floorMerged),
+    // 구조·엄폐 모두 바닥 밖에도 설 수 있다 (클립 없음)
+    structHigh: mergeGeo(st.filter((x) => !x.low)),
+    structLow: mergeGeo(st.filter((x) => x.low)),
     zones: doc.zones,
   });
+  // 동선 — renderScrawl은 바닥이 비면 조기 반환하므로 바깥에서 얹는다 (숨김이면 제외)
+  if (doc.pathVisible !== false) {
+    drawStrokes(ctx, doc.strokes ?? [], { CELL: cellPx, zoomK: 1, colors: c });
+  }
   ctx.restore();
 
   ctx.fillStyle = c.border;
@@ -690,7 +843,17 @@ export function exportTopdownPNG(doc: TopdownDoc, filename?: string) {
     `${doc.name} — ${cols}×${rows} · 1셀=1m · ${meters}m (${meters * 100}uu) · 벽 ${doc.style.wallM}m`,
     pad, Math.round(pad / 2),
   );
+  return cv;
+}
 
+/** 평면도 문서 → PNG dataURL + 픽셀 크기. 다른 에디터(페이싱 등)의 배경 맵으로 재사용. */
+export function topdownToDataURL(doc: TopdownDoc): { dataUrl: string; w: number; h: number } {
+  const cv = renderTopdownCanvas(doc);
+  return { dataUrl: cv.toDataURL('image/png'), w: cv.width, h: cv.height };
+}
+
+export function exportTopdownPNG(doc: TopdownDoc, filename?: string) {
+  const cv = renderTopdownCanvas(doc);
   cv.toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);

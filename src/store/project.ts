@@ -5,6 +5,7 @@ import type {
   Project, Postit, BubbleNode, BubbleEdge, Decoration, DecorationKind,
   Concept, PostitColor, NodeType, EdgeType, CanvasView, ImageItem,
   TopdownDoc, GeoShape, StructShape, ZoneObj, DoorObj, StairObj, TextObj, MarkerObj, GeoPoly,
+  TdImage, StrokeObj,
 } from '../types';
 import { emptyProject, emptyTopdown, migrateProject } from '../types';
 import { distToPolyEdge } from '../components/topdown/topdown-utils';
@@ -149,12 +150,21 @@ interface ProjectStore {
   addText: (tdId: string, text: TextObj) => void;
   updateText: (tdId: string, id: string, patch: Partial<TextObj>) => void;
   removeText: (tdId: string, ids: string[]) => void;
-  /** 문/계단/텍스트 단일 오브젝트 이동 (그리드 단위 delta) */
+  /** 문/계단/텍스트/마커/배경이미지 단일 오브젝트 이동 (그리드 단위 delta) */
   translateObject: (tdId: string, id: string, dx: number, dy: number) => void;
   /** 마커 (게임플레이·린치 배지) */
   addMarker: (tdId: string, marker: MarkerObj) => void;
   updateMarker: (tdId: string, id: string, patch: Partial<MarkerObj>) => void;
   removeMarker: (tdId: string, ids: string[]) => void;
+  /** 동선 — 자유 드로잉 스트로크 추가 (1획 = undo 1단계) */
+  addStroke: (tdId: string, stroke: StrokeObj) => void;
+  removeStroke: (tdId: string, ids: string[]) => void;
+  /** 동선 레이어 전체 비우기 — 호출 1회 = undo 1단계 */
+  clearStrokes: (tdId: string) => void;
+  /** 배경 참조 이미지 — 가장 아래 레이어. 이동은 translateObject 공용 */
+  addTdImage: (tdId: string, image: TdImage) => void;
+  updateTdImage: (tdId: string, id: string, patch: Partial<TdImage>) => void;
+  removeTdImage: (tdId: string, ids: string[]) => void;
   /** 일괄 추가 (붙여넣기) — 호출 1회 = undo 1단계 */
   addMany: (tdId: string, items: {
     geo?: GeoShape[]; struct?: StructShape[]; zones?: ZoneObj[]; doors?: DoorObj[];
@@ -968,6 +978,53 @@ export const useProject = create<ProjectStore>()(
         }));
       },
 
+      // 숨김 상태에서 그리면 보이지 않는 획이 쌓인다 — 커밋과 함께 레이어를 다시 켠다
+      addStroke: (tdId, stroke) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId
+            ? { ...t, strokes: [...(t.strokes ?? []), stroke], pathVisible: true }
+            : t),
+      })),
+
+      removeStroke: (tdId, ids) => {
+        const idSet = new Set(ids);
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) =>
+            t.id === tdId ? { ...t, strokes: (t.strokes ?? []).filter((s) => !idSet.has(s.id)) } : t),
+        }));
+      },
+
+      clearStrokes: (tdId) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId ? { ...t, strokes: [] } : t),
+      })),
+
+      addTdImage: (tdId, image) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId ? { ...t, images: [...(t.images ?? []), image] } : t),
+      })),
+
+      updateTdImage: (tdId, id, patch) => updateCurrent(set, (p) => ({
+        ...p,
+        topdowns: (p.topdowns ?? []).map((t) =>
+          t.id === tdId
+            ? { ...t, images: (t.images ?? []).map((im) => (im.id === id ? { ...im, ...patch } : im)) }
+            : t),
+      })),
+
+      removeTdImage: (tdId, ids) => {
+        const idSet = new Set(ids);
+        updateCurrent(set, (p) => ({
+          ...p,
+          topdowns: (p.topdowns ?? []).map((t) =>
+            t.id === tdId ? { ...t, images: (t.images ?? []).filter((im) => !idSet.has(im.id)) } : t),
+        }));
+      },
+
       // ── 매싱 스케처 — 모드 전환만 (데이터는 별도 스토어) ──
       enterMassing: () => set({ mode: 'massing' }),
       exitMassing: () => set({ mode: 'bubble' }),
@@ -1015,6 +1072,12 @@ export const useProject = create<ProjectStore>()(
                     x.id === id ? { ...x, x: x.x + dx, y: x.y + dy } : x),
                   markers: (t.markers ?? []).map((m) =>
                     m.id === id ? { ...m, x: m.x + dx, y: m.y + dy } : m),
+                  images: (t.images ?? []).map((im) =>
+                    im.id === id ? { ...im, x: im.x + dx, y: im.y + dy } : im),
+                  strokes: (t.strokes ?? []).map((s) =>
+                    s.id === id
+                      ? { ...s, pts: s.pts.map(([x, y]) => [x! + dx, y! + dy]) }
+                      : s),
                 }
               : t),
         }));

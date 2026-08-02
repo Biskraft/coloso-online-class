@@ -214,6 +214,49 @@
   color: #fff !important;
 }
 
+/* 동선 — 드로잉 전용 레이어. 활성 시 모스 톤 */
+.td-target-path.is-active {
+  background: var(--moss) !important;
+  color: #fff !important;
+}
+
+/* 동선 색 견본 — 버튼 앞의 점이 실제 획 색 */
+.td-stroke-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.td-stroke-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(26, 24, 20, 0.35);
+  background: var(--ink-900);
+}
+
+.td-stroke-swatch[data-stroke="moss"]      .td-stroke-dot { background: var(--moss); }
+.td-stroke-swatch[data-stroke="ochre"]     .td-stroke-dot { background: var(--ochre); }
+.td-stroke-swatch[data-stroke="brick"]     .td-stroke-dot { background: var(--brick); }
+.td-stroke-swatch[data-stroke="blueprint"] .td-stroke-dot { background: var(--blueprint); }
+.td-stroke-swatch[data-stroke="ink"]       .td-stroke-dot { background: var(--ink-900); }
+
+.td-stroke-swatch.is-active .td-stroke-dot {
+  border-color: var(--paper-50);
+}
+
+/* 동선 표시 토글 — 버블 토글과 같은 문법, 색만 모스 */
+.td-path-toggle.is-active {
+  background: var(--moss) !important;
+  color: #fff !important;
+}
+
+/* 동선 비우기 — 파괴적 동작이라 벽돌 톤 테두리로 구분 */
+.td-stroke-clear:not(:disabled) {
+  border-color: var(--brick);
+  color: var(--brick);
+}
+
 /* 러프(동굴) 모드 — 활성 시 모스 톤 */
 .td-rough.is-active {
   background: var(--moss) !important;

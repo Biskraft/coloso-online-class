@@ -200,6 +200,30 @@ export interface MarkerObj {
   label?: string;
 }
 
+/** 동선 스트로크 색 — 디자인 토큰 키. 렌더 시점에 실제 색으로 해석해 테마 전환을 따른다 */
+export type StrokeColor = 'moss' | 'ochre' | 'brick' | 'blueprint' | 'ink';
+
+/** 동선 — 자유 드로잉 폴리라인. pts는 그리드(셀) 좌표, width는 선 두께(m) */
+export interface StrokeObj {
+  id: string;
+  pts: number[][];
+  color: StrokeColor;
+  width: number;
+}
+
+/** 배경 참조 이미지 — 도면 가장 아래 레이어에 깔리는 트레이싱 소스.
+    좌표·크기는 그리드(셀=m) 단위, x/y는 중심. rot은 라디안 */
+export interface TdImage {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rot: number;
+  src: string;        // data URI
+  createdAt: number;
+}
+
 /** 렌더 스타일 — 문서별 저장 */
 export interface TopdownStyle {
   wallM: number;       // 벽 두께 (m) — 내벽 0.25 기본, 성벽 0.5
@@ -216,6 +240,8 @@ export interface TopdownDoc {
   week?: number;
   grid: [number, number];           // [cols, rows] — 최대 512 (스냅·범위 기준). 1셀 = 1m 고정 (1m = 100uu)
   overlay: TopdownOverlay;
+  /** 배경 참조 이미지 — 모든 도형보다 아래에 렌더 */
+  images: TdImage[];
   geo: GeoShape[];
   struct: StructShape[];
   zones: ZoneObj[];
@@ -223,6 +249,10 @@ export interface TopdownDoc {
   stairs: StairObj[];
   texts: TextObj[];
   markers: MarkerObj[];
+  /** 동선 레이어 — 자유 드로잉. 도면 위 주석이라 도형 병합에 관여하지 않는다 */
+  strokes: StrokeObj[];
+  /** 동선 표시 여부 (기본 true) — 강의 시연 중 도면만 보여줄 때 끈다 */
+  pathVisible?: boolean;
   style: TopdownStyle;
 }
 
@@ -233,6 +263,7 @@ export const emptyTopdown = (id: string, name = '평면도 1'): TopdownDoc => ({
   name,
   grid: [256, 256],
   overlay: { visible: true, opacity: 0.5, tx: 0, ty: 0, scale: 1 },
+  images: [],
   geo: [],
   struct: [],
   zones: [],
@@ -240,6 +271,8 @@ export const emptyTopdown = (id: string, name = '평면도 1'): TopdownDoc => ({
   stairs: [],
   texts: [],
   markers: [],
+  strokes: [],
+  pathVisible: true,
   style: defaultTdStyle(),
 });
 
@@ -374,6 +407,7 @@ export function migrateProject(p: any): Project {
     return {
       ...rest,
       overlay: t.overlay ?? { visible: true, opacity: 0.5, tx: 0, ty: 0, scale: 1 },
+      images: Array.isArray(t.images) ? t.images : [],
       geo: Array.isArray(t.geo) ? t.geo : [],
       struct: Array.isArray(t.struct) ? t.struct : [],
       zones: Array.isArray(t.zones) ? t.zones : [],
@@ -381,6 +415,8 @@ export function migrateProject(p: any): Project {
       stairs: Array.isArray(t.stairs) ? t.stairs : [],
       texts: Array.isArray(t.texts) ? t.texts : [],
       markers: Array.isArray(t.markers) ? t.markers : [],
+      strokes: Array.isArray(t.strokes) ? t.strokes : [],
+      pathVisible: t.pathVisible !== false,
       style: t.style ?? defaultTdStyle(),
     };
   });

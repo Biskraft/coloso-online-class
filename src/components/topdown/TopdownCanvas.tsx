@@ -3,15 +3,17 @@ import { select } from 'd3-selection';
 import { zoom, zoomIdentity, type ZoomTransform } from 'd3-zoom';
 import type {
   TopdownDoc, GeoPoly, GeoShape, StructShape, ZoneObj, ZoneKind, DoorObj, StairObj, TextObj,
-  MarkerObj, MarkerKind,
+  MarkerObj, MarkerKind, TdImage, StrokeColor,
 } from '../../types';
 import { useProject } from '../../store/project';
 import { NODE_STYLES, nodeRadii } from '../canvas/node-shapes';
 import { uid } from '../../utils/id';
+import { fileToTdImage } from '../../utils/image';
 import {
   mergeGeo, mergeStruct, clipToFloor, rectPoly, ellipsePoly, corridorPoly, roughenPoly,
   hitShape, polyToPath, snapToWall, hitDoor, hitStair, hitText, hitMarker, hitZone, textBoxW,
-  distToPolyEdge, renderScrawl, readTdColors, gridFade, MARKER_R, ZONE_RGB,
+  distToPolyEdge, renderScrawl, readTdColors, gridFade, GRID_MAJOR, MARKER_R, ZONE_RGB,
+  tdImagePoly, hitTdImage, drawStrokes, strokeColorOf, hitStroke, strokeBBox,
   type TdColors, type WallHit,
 } from './topdown-utils';
 import './TopdownCanvas.css';
@@ -22,10 +24,10 @@ import './TopdownCanvas.css';
    벽·그림자·해칭·내부 그리드는 스타일로 자동 렌더
    ───────────────────────────────────────────────────────── */
 
-export type TdTool = 'select' | 'rect' | 'ellipse' | 'polygon' | 'corridor' | 'door' | 'stair' | 'text' | 'marker' | 'zone';
+export type TdTool = 'select' | 'rect' | 'ellipse' | 'polygon' | 'draw' | 'corridor' | 'door' | 'stair' | 'text' | 'marker' | 'zone';
 export type SnapStep = 0 | 0.25 | 0.5 | 1;
-/** 그리기 대상 레이어 — 바닥 / 내부 구조(잉크) / 낮은 엄폐 */
-export type TdTarget = 'floor' | 'struct' | 'cover';
+/** 그리기 대상 레이어 — 바닥 / 내부 구조(잉크) / 낮은 엄폐 / 동선(드로잉 전용) */
+export type TdTarget = 'floor' | 'struct' | 'cover' | 'path';
 
 const CELL = 16;
 const FIT_MARGIN = 48;
@@ -34,10 +36,15 @@ const HANDLE_PX = 8;             // 크기 핸들 한 변 화면 px
 const XF_TOL_PX = 10;            // 핸들 픽킹 허용 화면 px
 const ROT_SNAP = Math.PI / 12;   // 회전 스냅 15°
 
+/** 배경 이미지 드롭 시 긴 변이 차지할 작업 범위 비율 */
+const IMG_DROP_RATIO = 0.25;
+/** 동선 드로잉 — 이 간격(셀)보다 촘촘한 점은 버린다 (데이터·렌더 비용 절감) */
+const STROKE_MIN_STEP = 0.4;
+
 /** 단일 도형 변환(크기·회전) 드래그 상태 — 스케일은 도형의 로컬(회전된) 축 기준 */
 interface XformDrag {
   id: string;
-  kind: 'geo' | 'struct' | 'zone';
+  kind: 'geo' | 'struct' | 'zone' | 'image';
   mode: 'scale' | 'rotate';
   base: GeoPoly;
   rot0: number;                  // 시작 시점 도형 방향
@@ -93,6 +100,8 @@ interface Props {
   textSize: number;        // 텍스트 크기 (셀)
   markerKind: MarkerKind;  // 마커 종류
   zoneKind: ZoneKind;      // 구역 종류 — 안전/위험
+  strokeColor: StrokeColor; // 동선 색
+  strokeWidth: number;     // 동선 두께 (m)
   target: TdTarget;        // 그리기 대상 레이어 (1/2/3)
   calibrating: boolean;    // 버블 오버레이 조정 모드 — 드래그로 오버레이 이동
   onStatus?: (text: string) => void;
@@ -108,7 +117,7 @@ interface TextEdit {
   markerId?: string;       // 마커 라벨 수정 시
 }
 
-export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW, stairW, textSize, markerKind, zoneKind, target, calibrating, onStatus }: Props) {
+export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW, stairW, textSize, markerKind, zoneKind, strokeColor, strokeWidth, target, calibrating, onStatus }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tRef = useRef<ZoomTransform>(zoomIdentity);
@@ -139,8 +148,16 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
   } | null>(null);
   // 문 배치 미리보기 (벽 스냅 결과)
   const doorHitRef = useRef<WallHit | null>(null);
+  // 동선 드로잉 — 진행 중인 획 (스냅 없이 원시 좌표)
+  const strokeRef = useRef<number[][] | null>(null);
   // 텍스트 인라인 에디터
   const [textEdit, setTextEdit] = useState<TextEdit | null>(null);
+  // 배경 이미지 — 디코드 캐시(src → <img>) + 파일 드래그 오버 표시
+  const imgCacheRef = useRef(new Map<string, HTMLImageElement>());
+  const [dropHover, setDropHover] = useState(false);
+  // Ctrl+V 조정 — 마지막 paste 이벤트 시각. keydown보다 이르면 이벤트가 안 온 것으로 보고
+  // 폴백으로 도형을 붙여넣는다 (연속 입력에서도 서로 간섭하지 않도록 불리언 대신 시각)
+  const pasteSeenAtRef = useRef(0);
 
   const addGeo = useProject((s) => s.addGeo);
   const removeGeo = useProject((s) => s.removeGeo);
@@ -159,6 +176,11 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
   const updateText = useProject((s) => s.updateText);
   const removeText = useProject((s) => s.removeText);
   const translateObject = useProject((s) => s.translateObject);
+  const addTdImage = useProject((s) => s.addTdImage);
+  const updateTdImage = useProject((s) => s.updateTdImage);
+  const removeTdImage = useProject((s) => s.removeTdImage);
+  const addStroke = useProject((s) => s.addStroke);
+  const removeStroke = useProject((s) => s.removeStroke);
   const addMarker = useProject((s) => s.addMarker);
   const updateMarker = useProject((s) => s.updateMarker);
   const removeMarker = useProject((s) => s.removeMarker);
@@ -168,16 +190,22 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
   const bubbleNodes = useProject((s) => s.project.nodes);
   const bubbleEdges = useProject((s) => s.project.edges);
   const [cols, rows] = doc.grid;
+  /** 동선 표시 — 꺼져 있으면 렌더·선택 모두에서 빠진다 (없는 것처럼 취급) */
+  const visibleStrokes = useMemo(
+    () => (doc.pathVisible !== false ? (doc.strokes ?? []) : []),
+    [doc.pathVisible, doc.strokes],
+  );
 
   const merged = useMemo(() => mergeGeo(doc.geo), [doc.geo]);
-  /* 구조/엄폐 — 독립 병합 후 바닥에 클립 (렌더용). 판정은 원본 도형으로 */
+  /* 구조·엄폐 — 바닥에 클립하지 않는다.
+     외벽·다리·독립 구조물처럼 바닥이 깔리지 않은 곳에도 세울 수 있어야 한다 */
   const structHigh = useMemo(
-    () => clipToFloor(mergeStruct(doc.struct ?? [], false), merged),
-    [doc.struct, merged],
+    () => mergeStruct(doc.struct ?? [], false),
+    [doc.struct],
   );
   const structLow = useMemo(
-    () => clipToFloor(mergeStruct(doc.struct ?? [], true), merged),
-    [doc.struct, merged],
+    () => mergeStruct(doc.struct ?? [], true),
+    [doc.struct],
   );
   /* 문 스냅 대상 — 바닥 경계 + 구조(high) 경계 */
   const wallSrc = useMemo(() => [...merged, ...structHigh], [merged, structHigh]);
@@ -239,6 +267,42 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
 
   /* ── 메인 드로우 ── */
 
+  /* draw는 deps가 바뀔 때마다 새 클로저가 된다. d3-zoom 핸들러나 이미지 onload처럼
+     오래 사는 콜백이 낡은 draw를 붙잡지 않도록 ref로 항상 최신을 가리킨다 */
+  const drawRef = useRef<() => void>(() => {});
+
+  const scheduleDraw = useCallback(() => {
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      drawRef.current();
+    });
+  }, []);
+
+  /** 배경 이미지 디코드 캐시 — 같은 src는 <img> 하나를 재사용, 로드되면 다시 그린다 */
+  const getImg = useCallback((src: string) => {
+    const cache = imgCacheRef.current;
+    let el = cache.get(src);
+    if (!el) {
+      el = new Image();
+      el.onload = () => scheduleDraw();
+      el.src = src;
+      cache.set(src, el);
+    }
+    return el;
+  }, [scheduleDraw]);
+
+  /** 이미지의 현재 사각형 — 크기·회전 핸들을 잡고 있는 중이면 미리보기 값 */
+  const imgRect = (im: TdImage): { x: number; y: number; w: number; h: number; rot: number } => {
+    const X = xformRef.current;
+    const poly = xformPolyRef.current;
+    if (!X || X.kind !== 'image' || X.id !== im.id || !poly) return im;
+    const rot = X.mode === 'rotate' ? X.newRot : X.rot0;
+    const bb = localBBox(poly, rot);
+    const [cx, cy] = rotP(rot, (bb.x0 + bb.x1) / 2, (bb.y0 + bb.y1) / 2);
+    return { x: cx, y: cy, w: bb.x1 - bb.x0, h: bb.y1 - bb.y0, rot };
+  };
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const wrap = wrapRef.current;
@@ -262,16 +326,42 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
 
     ctx.setTransform(dpr * t.k, 0, 0, dpr * t.k, dpr * t.x, dpr * t.y);
 
+    // 배경 참조 이미지 — 가장 아래 레이어. 그리드·도형이 모두 이 위에 얹힌다
+    {
+      const [idx, idy] = moveDeltaRef.current;
+      for (const im of doc.images ?? []) {
+        const el = getImg(im.src);
+        if (!el.complete || !el.naturalWidth) continue;
+        const r = imgRect(im);
+        const off = selIds.includes(im.id) ? [idx, idy] : [0, 0];
+        ctx.save();
+        ctx.translate((r.x + off[0]!) * CELL, (r.y + off[1]!) * CELL);
+        ctx.rotate(r.rot);
+        ctx.drawImage(el, (-r.w / 2) * CELL, (-r.h / 2) * CELL, r.w * CELL, r.h * CELL);
+        ctx.restore();
+      }
+    }
+
     // 작업 범위 + 에디터용 옅은 전역 그리드 (내보내기엔 없음) — 줌 페이드
+    const gridLines = (step: number, style: string) => {
+      ctx.strokeStyle = style;
+      ctx.lineWidth = 1 / t.k;
+      ctx.beginPath();
+      for (let x = 0; x <= cols; x += step) { ctx.moveTo(x * CELL, 0); ctx.lineTo(x * CELL, H); }
+      for (let y = 0; y <= rows; y += step) { ctx.moveTo(0, y * CELL); ctx.lineTo(W, y * CELL); }
+      ctx.stroke();
+    };
     const gridA = gridFade(t.k * CELL, 3.5, 7);
     if (gridA > 0) {
       ctx.globalAlpha = gridA;
-      ctx.strokeStyle = c.gridSoft;
-      ctx.lineWidth = 1 / t.k;
-      ctx.beginPath();
-      for (let x = 0; x <= cols; x += 1) { ctx.moveTo(x * CELL, 0); ctx.lineTo(x * CELL, H); }
-      for (let y = 0; y <= rows; y += 1) { ctx.moveTo(0, y * CELL); ctx.lineTo(W, y * CELL); }
-      ctx.stroke();
+      gridLines(1, c.gridSoft);
+      ctx.globalAlpha = 1;
+    }
+    // 10m 기준선 — 1m 격자보다 한 단계 진하게, 더 멀리 줌아웃해도 남는다
+    const majorA = gridFade(t.k * CELL * GRID_MAJOR, 6, 12);
+    if (majorA > 0) {
+      ctx.globalAlpha = majorA;
+      gridLines(GRID_MAJOR, c.gridMajor);
       ctx.globalAlpha = 1;
     }
     ctx.strokeStyle = c.gridHard;
@@ -288,6 +378,23 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
       structHigh, structLow,
       zones: doc.zones,
     });
+
+    // 동선 레이어 — renderScrawl은 바닥이 비면 조기 반환하므로 바깥에서 얹는다.
+    // 선택된 획은 이동 미리보기 델타를 반영해 그린다
+    {
+      const [sdx, sdy] = moveDeltaRef.current;
+      const list = visibleStrokes.map((s) => (
+        selIds.includes(s.id) && (sdx !== 0 || sdy !== 0)
+          ? { ...s, pts: s.pts.map(([x, y]) => [x! + sdx, y! + sdy]) }
+          : s));
+      drawStrokes(ctx, list, { CELL, zoomK: t.k, colors: c });
+    }
+
+    // 진행 중인 획 — 커밋 전 미리보기 (같은 색·두께)
+    if (strokeRef.current && strokeRef.current.length > 0) {
+      drawStrokes(ctx, [{ id: '_live', pts: strokeRef.current, color: strokeColor, width: strokeWidth }],
+        { CELL, zoomK: t.k, colors: c });
+    }
 
     // 버블 오버레이 — 도면 위 반투명 트레이싱 (자동 맞춤 + 수동 보정)
     if (doc.overlay.visible && overlayXf) {
@@ -387,6 +494,38 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
         ctx.fillText(label, cx, cy);
       };
       for (const sid of selIds) {
+        // 동선 획 — 획 자체를 감싸는 점선 하이라이트 (획보다 조금 굵게)
+        const stk = visibleStrokes.find((s) => s.id === sid);
+        if (stk) {
+          ctx.save();
+          ctx.translate(mdx * CELL, mdy * CELL);
+          ctx.strokeStyle = 'rgba(44,95,124,0.9)';
+          ctx.lineWidth = Math.max(stk.width * CELL, 1.2 / t.k) + 4 / t.k;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.setLineDash([7 / t.k, 5 / t.k]);
+          ctx.beginPath();
+          stk.pts.forEach(([x, y], i) => (i
+            ? ctx.lineTo(x! * CELL, y! * CELL)
+            : ctx.moveTo(x! * CELL, y! * CELL)));
+          if (stk.pts.length === 1) ctx.lineTo(stk.pts[0]![0]! * CELL, stk.pts[0]![1]! * CELL);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+          continue;
+        }
+        const im = (doc.images ?? []).find((s) => s.id === sid);
+        if (im) {
+          const r = imgRect(im);
+          const ipoly = tdImagePoly({ ...im, ...r });
+          ctx.save();
+          ctx.translate(mdx * CELL, mdy * CELL);
+          marker();
+          ctx.stroke(polyToPath(ipoly, CELL));
+          dimLabel(ipoly, r.rot);
+          ctx.restore();
+          continue;
+        }
         const g = doc.geo.find((s) => s.id === sid)
           ?? (doc.struct ?? []).find((s) => s.id === sid)
           ?? (doc.zones ?? []).find((s) => s.id === sid);
@@ -447,7 +586,13 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
         const g = doc.geo.find((s) => s.id === sid)
           ?? (doc.struct ?? []).find((s) => s.id === sid)
           ?? (doc.zones ?? []).find((s) => s.id === sid);
-        return g ? { poly: g.poly, rot: g.rot ?? 0 } : null;
+        if (g) return { poly: g.poly, rot: g.rot ?? 0 };
+        const im = (doc.images ?? []).find((s) => s.id === sid);
+        if (im) {
+          const r = imgRect(im);
+          return { poly: tdImagePoly({ ...im, ...r }), rot: r.rot };
+        }
+        return null;
       })();
       if (sh && !moveStartRef.current && !marqueeRef.current) {
         const X = xformRef.current;
@@ -607,20 +752,10 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
     }
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-  }, [cols, rows, tool, erase, target, zoneKind, merged, structHigh, structLow, doc.geo, doc.struct, doc.zones, doc.doors, doc.stairs, doc.texts, doc.markers, doc.style, doc.overlay, selIds, pts, doorW, stairW, calibrating, bubbleNodes, bubbleEdges, overlayXf]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cols, rows, tool, erase, target, zoneKind, strokeColor, strokeWidth, merged, structHigh, structLow, doc.geo, doc.struct, doc.zones, doc.doors, doc.stairs, doc.texts, doc.markers, doc.images, visibleStrokes, doc.style, doc.overlay, selIds, pts, doorW, stairW, calibrating, bubbleNodes, bubbleEdges, overlayXf, getImg]);
 
-  /* draw는 deps가 바뀔 때마다 새 클로저가 된다. d3-zoom 핸들러처럼
-     오래 사는 클로저가 낡은 draw를 붙잡지 않도록 ref로 항상 최신을 가리킨다 */
-  const drawRef = useRef(draw);
   drawRef.current = draw;
-
-  const scheduleDraw = useCallback(() => {
-    if (rafRef.current) return;
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = 0;
-      drawRef.current();
-    });
-  }, []);
 
   useEffect(() => { scheduleDraw(); }, [draw, scheduleDraw]);
 
@@ -635,7 +770,16 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
     calStartRef.current = null;
     xformRef.current = null;
     xformPolyRef.current = null;
+    strokeRef.current = null;
   }, [doc.id]);
+
+  /* ── 동선 도구는 선택 개념이 없다 — 남아 있던 선택·핸들을 정리 ── */
+  useEffect(() => {
+    if (tool !== 'draw') return;
+    setSelIds([]);
+    xformRef.current = null;
+    xformPolyRef.current = null;
+  }, [tool]);
 
   /* ── d3-zoom ── */
   useEffect(() => {
@@ -686,7 +830,15 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
 
       // 복사/붙여넣기 — 선택 요소를 2셀 오프셋으로 복제 (연속 붙여넣기는 누적)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
-        if (selIds.length === 0) return;
+        if (selIds.length === 0) {
+          // 선택 없이 복사 = 도형 클립보드 비우기.
+          // 이후 Ctrl+V는 다시 시스템 클립보드(이미지)를 붙인다
+          if (clipRef.current) {
+            clipRef.current = null;
+            onStatus?.('도형 클립보드를 비웠습니다 — 이제 Ctrl+V로 클립보드 이미지를 붙입니다');
+          }
+          return;
+        }
         const inSel = (id: string) => selIds.includes(id);
         clipRef.current = {
           geo: doc.geo.filter((g) => inSel(g.id))
@@ -704,50 +856,13 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
-        const clip = clipRef.current;
-        if (!clip) return;
-        clip.pastes += 1;
-        const off = clip.pastes * 2;
-        const newIds: string[] = [];
-        const geo = clip.geo.map((g) => {
-          const id = uid('geo');
-          newIds.push(id);
-          return { id, op: g.op, poly: g.poly.map((r) => r.map(([x, y]) => [x! + off, y! + off])) as GeoPoly };
-        });
-        const struct = clip.struct.map((g) => {
-          const id = uid('st');
-          newIds.push(id);
-          return { id, op: g.op, low: g.low, poly: g.poly.map((r) => r.map(([x, y]) => [x! + off, y! + off])) as GeoPoly };
-        });
-        const zones = clip.zones.map((z) => {
-          const id = uid('zn');
-          newIds.push(id);
-          return { id, kind: z.kind, poly: z.poly.map((r) => r.map(([x, y]) => [x! + off, y! + off])) as GeoPoly };
-        });
-        const doors = clip.doors.map((d) => {
-          const id = uid('door');
-          newIds.push(id);
-          return { ...d, id, x: d.x + off, y: d.y + off };
-        });
-        const stairs = clip.stairs.map((s) => {
-          const id = uid('str');
-          newIds.push(id);
-          return { ...s, id, x1: s.x1 + off, y1: s.y1 + off, x2: s.x2 + off, y2: s.y2 + off };
-        });
-        const texts = clip.texts.map((x) => {
-          const id = uid('txt');
-          newIds.push(id);
-          return { ...x, id, x: x.x + off, y: x.y + off };
-        });
-        const markers = clip.markers.map((m) => {
-          const id = uid('mk');
-          newIds.push(id);
-          return { ...m, id, x: m.x + off, y: m.y + off };
-        });
-        if (newIds.length) {
-          addMany(doc.id, { geo, struct, zones, doors, stairs, texts, markers });
-          setSelIds(newIds);
-        }
+        // 실제 붙여넣기는 paste 이벤트에서 처리한다 — 시스템 클립보드의 이미지가
+        // 도형 클립보드보다 우선해야 하는데, keydown 시점엔 클립보드를 읽을 수 없다.
+        // paste 이벤트가 오지 않는 환경(권한·포커스)만 이 타이머가 대신 처리한다.
+        const pressedAt = performance.now();
+        window.setTimeout(() => {
+          if (pasteSeenAtRef.current < pressedAt) pasteShapes();
+        }, 0);
         return;
       }
 
@@ -772,7 +887,11 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
         const markerIds = selIds.filter((id) => has(doc.markers, id));
         const structIds = selIds.filter((id) => has(doc.struct, id));
         const zoneIds = selIds.filter((id) => has(doc.zones, id));
+        const imageIds = selIds.filter((id) => has(doc.images, id));
+        const strokeIds = selIds.filter((id) => has(doc.strokes, id));
         const geoIds = selIds.filter((id) => doc.geo.some((g) => g.id === id));
+        if (strokeIds.length) removeStroke(doc.id, strokeIds);
+        if (imageIds.length) removeTdImage(doc.id, imageIds);
         if (doorIds.length) removeDoor(doc.id, doorIds);
         if (stairIds.length) removeStair(doc.id, stairIds);
         if (textIds.length) removeText(doc.id, textIds);
@@ -783,8 +902,83 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
         setSelIds([]);
       }
     };
+
+    /** 도형 클립보드 붙여넣기 — 2셀씩 누적 오프셋 */
+    const pasteShapes = () => {
+      const clip = clipRef.current;
+      if (!clip) return;
+      clip.pastes += 1;
+      const off = clip.pastes * 2;
+      const newIds: string[] = [];
+      const geo = clip.geo.map((g) => {
+        const id = uid('geo');
+        newIds.push(id);
+        return { id, op: g.op, poly: g.poly.map((r) => r.map(([x, y]) => [x! + off, y! + off])) as GeoPoly };
+      });
+      const struct = clip.struct.map((g) => {
+        const id = uid('st');
+        newIds.push(id);
+        return { id, op: g.op, low: g.low, poly: g.poly.map((r) => r.map(([x, y]) => [x! + off, y! + off])) as GeoPoly };
+      });
+      const zones = clip.zones.map((z) => {
+        const id = uid('zn');
+        newIds.push(id);
+        return { id, kind: z.kind, poly: z.poly.map((r) => r.map(([x, y]) => [x! + off, y! + off])) as GeoPoly };
+      });
+      const doors = clip.doors.map((d) => {
+        const id = uid('door');
+        newIds.push(id);
+        return { ...d, id, x: d.x + off, y: d.y + off };
+      });
+      const stairs = clip.stairs.map((s) => {
+        const id = uid('str');
+        newIds.push(id);
+        return { ...s, id, x1: s.x1 + off, y1: s.y1 + off, x2: s.x2 + off, y2: s.y2 + off };
+      });
+      const texts = clip.texts.map((x) => {
+        const id = uid('txt');
+        newIds.push(id);
+        return { ...x, id, x: x.x + off, y: x.y + off };
+      });
+      const markers = clip.markers.map((m) => {
+        const id = uid('mk');
+        newIds.push(id);
+        return { ...m, id, x: m.x + off, y: m.y + off };
+      });
+      if (newIds.length) {
+        addMany(doc.id, { geo, struct, zones, doors, stairs, texts, markers });
+        setSelIds(newIds);
+      }
+    };
+
+    /** 시스템 클립보드 붙여넣기 — 이미지가 있으면 배경 레이어로, 없으면 도형 클립보드 */
+    const onPaste = (e: ClipboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      pasteSeenAtRef.current = performance.now();
+      // 도형 클립보드가 있으면 언제나 그쪽이 우선.
+      // 스크린샷 등으로 시스템 클립보드에 이미지가 들어 있어도 도형 복제가 가로채이지 않는다.
+      // 이미지를 붙이려면 선택 없이 Ctrl+C로 도형 클립보드를 비우거나 파일을 드래그&드롭한다.
+      if (clipRef.current) { pasteShapes(); return; }
+      const items = e.clipboardData?.items;
+      const fileItem = items
+        ? Array.from(items).find((it) => it.kind === 'file' && it.type.startsWith('image/'))
+        : undefined;
+      const blob = fileItem?.getAsFile();
+      if (!blob) { pasteShapes(); return; }
+      e.preventDefault();
+      // 커서가 캔버스 위면 그 자리, 아니면 화면 중앙
+      const t = tRef.current;
+      const wrap = wrapRef.current;
+      const at: [number, number] = cursorRef.current ?? (wrap
+        ? [t.invertX(wrap.clientWidth / 2) / CELL, t.invertY(wrap.clientHeight / 2) / CELL]
+        : [cols / 2, rows / 2]);
+      void placeImage(blob, at, 0);
+    };
+
     window.addEventListener('keydown', onKey, true);
     window.addEventListener('keyup', onKey);
+    window.addEventListener('paste', onPaste);
     const ro = new ResizeObserver(() => scheduleDraw());
     if (wrapRef.current) ro.observe(wrapRef.current);
     const mo = new MutationObserver(() => {
@@ -795,11 +989,12 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
     return () => {
       window.removeEventListener('keydown', onKey, true);
       window.removeEventListener('keyup', onKey);
+      window.removeEventListener('paste', onPaste);
       ro.disconnect();
       mo.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pts, selIds, doc.id, doc.geo, doc.struct, doc.zones, doc.doors, doc.stairs, doc.texts, doc.markers, scheduleDraw]);
+  }, [pts, selIds, doc.id, doc.grid, doc.geo, doc.struct, doc.zones, doc.doors, doc.stairs, doc.texts, doc.markers, doc.images, scheduleDraw]);
 
   /* ── 도형 커밋 ── */
 
@@ -879,7 +1074,7 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
 
   /* ── 단일 도형 크기·회전 핸들 ── */
 
-  const singleShape = (): { id: string; kind: 'geo' | 'struct' | 'zone'; poly: GeoPoly; rot: number } | null => {
+  const singleShape = (): { id: string; kind: XformDrag['kind']; poly: GeoPoly; rot: number } | null => {
     if (selIds.length !== 1) return null;
     const id = selIds[0]!;
     const g = doc.geo.find((s) => s.id === id);
@@ -888,6 +1083,9 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
     if (st) return { id, kind: 'struct', poly: st.poly, rot: st.rot ?? 0 };
     const z = (doc.zones ?? []).find((s) => s.id === id);
     if (z) return { id, kind: 'zone', poly: z.poly, rot: z.rot ?? 0 };
+    // 배경 이미지도 같은 핸들을 쓴다 — 회전 사각형을 폴리곤으로 표현
+    const im = (doc.images ?? []).find((s) => s.id === id);
+    if (im) return { id, kind: 'image', poly: tdImagePoly(im), rot: im.rot };
     return null;
   };
 
@@ -933,6 +1131,13 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
     const p = snapPt(raw);
 
     if (textEdit) { commitText(); return; }
+    // 동선 드로잉 — 다른 어떤 판정보다 먼저. 스냅 없이 원시 좌표를 모은다
+    if (tool === 'draw') {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      strokeRef.current = [raw];
+      scheduleDraw();
+      return;
+    }
     // 오버레이 조정 모드 — 드래그로 오버레이 이동 (도구 무시)
     if (calibrating && doc.overlay.visible) {
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -1015,9 +1220,13 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
         hitMarker(raw[0], raw[1], doc.markers ?? []) ??
         hitDoor(raw[0], raw[1], doc.doors ?? []) ??
         hitStair(raw[0], raw[1], doc.stairs ?? []) ??
+        // 동선 획 — 도면 위 주석이라 도형·구역보다 먼저 잡힌다 (숨김 상태면 제외)
+        hitStroke(raw[0], raw[1], visibleStrokes) ??
         hitZone(raw[0], raw[1], doc.zones ?? []) ??
         hitShape(raw[0], raw[1], doc.struct ?? []) ??
-        hitShape(raw[0], raw[1], doc.geo);
+        hitShape(raw[0], raw[1], doc.geo) ??
+        // 배경 이미지는 가장 아래 레이어 — 다른 것이 없을 때만 잡힌다
+        hitTdImage(raw[0], raw[1], doc.images ?? []);
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       if (hit) {
         // 이미 선택된 묶음 안을 잡으면 그룹 이동 시작, 아니면 단일 선택
@@ -1048,7 +1257,17 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
     const raw = worldAt(e);
     if (!raw) return;
     const p = snapPt(raw);
-    cursorRef.current = tool === 'select' || tool === 'door' ? raw : p;
+    cursorRef.current = tool === 'select' || tool === 'door' || tool === 'draw' ? raw : p;
+
+    // 동선 드로잉 진행 — 일정 간격 이상 움직였을 때만 점 추가
+    if (strokeRef.current) {
+      const last = strokeRef.current[strokeRef.current.length - 1]!;
+      if (Math.hypot(raw[0] - last[0]!, raw[1] - last[1]!) >= STROKE_MIN_STEP) {
+        strokeRef.current.push(raw);
+        scheduleDraw();
+      }
+      return;
+    }
 
     // 오버레이 조정 드래그 — 월드 px 단위 이동
     if (calibrating && calStartRef.current) {
@@ -1108,11 +1327,15 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
       const inFloor = merged.length > 0;
       onStatus(
         `(${p[0].toFixed(2)}, ${p[1].toFixed(2)}) · ${cols}m × ${rows}m · 벽 ${doc.style.wallM}m` +
-        (target !== 'floor' ? (target === 'struct' ? ' · 대상: 구조' : ' · 대상: 엄폐') : '') +
+        (target !== 'floor'
+          ? (target === 'struct' ? ' · 대상: 구조'
+            : target === 'cover' ? ' · 대상: 엄폐'
+            : ` · 대상: 동선 · 두께 ${strokeWidth}m`)
+          : '') +
         (erase ? ' · 빼기 모드' : '') +
         (rough ? ' · 러프' : '') +
         (snap ? ` · 스냅 ${snap}셀` : ' · 스냅 끔') +
-        (inFloor ? '' : ' · 사각형(R)으로 첫 방을 그려보세요') +
+        (tool === 'draw' ? ' · 드래그로 자유 드로잉' : inFloor ? '' : ' · 사각형(R)으로 첫 방을 그려보세요') +
         (tool === 'door' && inFloor && !doorHitRef.current ? ' · 벽 가까이에서 클릭하면 문이 놓입니다' : '') +
         (calibrating ? ' · 오버레이 조정 — 드래그로 이동' : '') +
         (selIds.length > 1 ? ` · 선택 ${selIds.length}개` : ''),
@@ -1133,6 +1356,19 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
+    // 동선 드로잉 커밋 — 1획 = undo 1단계
+    if (strokeRef.current) {
+      const pts2 = strokeRef.current;
+      strokeRef.current = null;
+      const raw = worldAt(e);
+      if (raw) {
+        const last = pts2[pts2.length - 1]!;
+        if (Math.hypot(raw[0] - last[0]!, raw[1] - last[1]!) > 1e-6) pts2.push(raw);
+      }
+      addStroke(doc.id, { id: uid('stk'), pts: pts2, color: strokeColor, width: strokeWidth });
+      scheduleDraw();
+      return;
+    }
     if (calibrating && calStartRef.current) {
       calStartRef.current = null;
       return;
@@ -1144,6 +1380,17 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
       xformRef.current = null;
       xformPolyRef.current = null;
       if (poly) {
+        // 배경 이미지 — 폴리곤을 다시 사각형(중심·크기·방향)으로 환원해 저장
+        if (X.kind === 'image') {
+          const rot = X.mode === 'rotate' ? X.newRot : X.rot0;
+          const bb = localBBox(poly, rot);
+          const [cx, cy] = rotP(rot, (bb.x0 + bb.x1) / 2, (bb.y0 + bb.y1) / 2);
+          updateTdImage(doc.id, X.id, {
+            x: cx, y: cy, w: bb.x1 - bb.x0, h: bb.y1 - bb.y0, rot,
+          });
+          scheduleDraw();
+          return;
+        }
         let doors: { id: string; x: number; y: number; angle: number }[] | undefined;
         if (X.kind !== 'zone') {
           const attached = (doc.doors ?? []).filter((d) => distToPolyEdge(d.x, d.y, X.base) <= 0.45);
@@ -1214,6 +1461,16 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
         for (const mk of doc.markers ?? []) {
           if (mk.x >= x0 && mk.x <= x1 && mk.y >= y0 && mk.y <= y1) ids.push(mk.id);
         }
+        for (const s of visibleStrokes) {
+          const bb = strokeBBox(s);
+          if (bb.x1 >= x0 && bb.x0 <= x1 && bb.y1 >= y0 && bb.y0 <= y1) ids.push(s.id);
+        }
+        for (const im of doc.images ?? []) {
+          const ring = tdImagePoly(im)[0]!;
+          const xs = ring.map((p) => p[0]!), ys = ring.map((p) => p[1]!);
+          if (Math.max(...xs) >= x0 && Math.min(...xs) <= x1
+            && Math.max(...ys) >= y0 && Math.min(...ys) <= y1) ids.push(im.id);
+        }
         setSelIds(ids);
       }
       scheduleDraw();
@@ -1282,8 +1539,66 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
     scheduleDraw();
   };
 
+  /* ── 이미지 가져오기 — 드래그&드롭 / Ctrl+V 공용 ── */
+
+  /** 이미지 파일 1장을 배경 참조 레이어에 배치. seq는 여러 장일 때의 계단식 오프셋 */
+  const placeImage = async (file: Blob, at: [number, number], seq = 0) => {
+    try {
+      const sized = await fileToTdImage(file);
+      if (!sized) return;
+      // 긴 변 = 작업 범위의 IMG_DROP_RATIO
+      const longCells = Math.max(8, Math.round(Math.max(cols, rows) * IMG_DROP_RATIO));
+      const k = longCells / Math.max(sized.w, sized.h);
+      const id = uid('tdimg');
+      addTdImage(doc.id, {
+        id,
+        x: at[0] + seq * 2, y: at[1] + seq * 2,
+        w: sized.w * k, h: sized.h * k,
+        rot: 0,
+        src: sized.src,
+        createdAt: Date.now(),
+      });
+      setSelIds([id]);
+      onStatus?.(`이미지 배치 — ${Math.round(sized.w * k)}m × ${Math.round(sized.h * k)}m · 선택(V)에서 이동·모서리 크기·손잡이 회전`);
+    } catch (err) {
+      onStatus?.(`이미지 불러오기 실패 — ${(err as Error).message ?? err}`);
+    }
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (!dropHover) setDropHover(true);
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    // 자식으로 이동하는 중이면 무시
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setDropHover(false);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDropHover(false);
+    const files = Array.from(e.dataTransfer.files ?? []).filter((f) => f.type.startsWith('image/'));
+    if (files.length === 0) return;
+    const raw = worldAt(e);
+    if (!raw) return;
+    files.forEach((file, i) => void placeImage(file, raw, i));
+  };
+
   return (
-    <div ref={wrapRef} className="td-canvas-wrap" data-tool={tool} data-erase={erase} data-calibrating={calibrating}>
+    <div
+      ref={wrapRef}
+      className={`td-canvas-wrap${dropHover ? ' is-drop-hover' : ''}`}
+      data-tool={tool}
+      data-erase={erase}
+      data-calibrating={calibrating}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <canvas
         ref={canvasRef}
         className="td-canvas"

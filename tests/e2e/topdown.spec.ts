@@ -248,6 +248,9 @@ test('복사/붙여넣기(Ctrl+C/V) + 실행취소 버튼(↶↷)', async ({ pag
   await page.mouse.down();
   await page.mouse.move(cx + 60, cy + 50, { steps: 5 });
   await page.mouse.up();
+  // 히스토리 스냅샷은 250ms throttle로 묶인다 — 방 그리기와 붙여넣기를
+  // 서로 다른 undo 단계로 만들려면 그 창을 넘겨야 한다
+  await page.waitForTimeout(300);
   await page.locator('.td-tool', { hasText: '선택' }).click();
   await page.mouse.click(cx - 20, cy - 10);
   await page.keyboard.press('Control+c');
@@ -562,6 +565,105 @@ test('내부 구조 레이어 — 구조·엄폐 그리기 + 구조 벽에 문 +
   td = ws.projects[0].topdowns[0];
   expect(td.geo.length).toBe(0);
   expect(td.struct.length).toBe(0);
+});
+
+test('넓은 복도의 꺾임은 뾰족하게 튀지 않는다 (폭 8m, 90° 회전)', async ({ page }) => {
+  const { box } = await enterAndBox(page);
+
+  // 진입 직후 화면 맞춤 변환 — 클릭 지점의 월드 좌표를 역산하기 위해
+  const CELL = 16, GRID = 256, FIT = 48;
+  const W = GRID * CELL;
+  const k = Math.max(0.02, Math.min(12, Math.min((box.width - FIT * 2) / W, (box.height - FIT * 2) / W)));
+  const ox = box.x + (box.width - W * k) / 2;
+  const oy = box.y + (box.height - W * k) / 2;
+  const S = (wx: number, wy: number) => ({ x: ox + wx * CELL * k, y: oy + wy * CELL * k });
+
+  await page.locator('.td-tool', { hasText: '복도' }).click();
+  await page.locator('.td-group[aria-label="복도 폭"] .td-btn', { hasText: '8m' }).click();
+
+  // ㄱ자 경로 — 90° 꺾임 하나
+  const path: [number, number][] = [[80, 100], [140, 100], [140, 170]];
+  for (const [wx, wy] of path) {
+    const p = S(wx, wy);
+    await page.mouse.click(p.x, p.y);
+  }
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(800);
+
+  const ws = await readWorkspace(page);
+  const poly = ws.projects[0].topdowns[0].geo[0].poly[0] as number[][];
+  expect(poly.length).toBeGreaterThan(4);
+
+  // 사각 마감을 감안해 중심선을 양 끝 half(=4)만큼 연장한 뒤,
+  // 모든 꼭짓점이 중심선에서 half 이내인지 본다. 뿔이 있으면 half*√2까지 벌어진다.
+  const half = 4;
+  const line: [number, number][] = [[80 - half, 100], [140, 100], [140, 170 + half]];
+  const distToSeg = (px: number, py: number, a: number[], b: number[]) => {
+    const dx = b[0]! - a[0]!, dy = b[1]! - a[1]!;
+    const l2 = dx * dx + dy * dy;
+    const t = l2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - a[0]!) * dx + (py - a[1]!) * dy) / l2));
+    return Math.hypot(px - (a[0]! + t * dx), py - (a[1]! + t * dy));
+  };
+  let worst = 0;
+  for (const [px, py] of poly) {
+    let d = Infinity;
+    for (let i = 1; i < line.length; i++) d = Math.min(d, distToSeg(px!, py!, line[i - 1]!, line[i]!));
+    worst = Math.max(worst, d);
+  }
+  expect(worst).toBeLessThan(half + 0.15);
+});
+
+test('구조·엄폐는 바닥 밖에서도 그려진다', async ({ page }) => {
+  const { canvas, cx, cy } = await enterAndBox(page);
+  await page.mouse.move(cx, cy);
+  for (let i = 0; i < 4; i++) await page.mouse.wheel(0, -240);
+  await page.waitForTimeout(200);
+
+  /** 화면 좌표의 캔버스 픽셀을 읽는다 — 렌더 결과를 직접 확인 */
+  const sample = (sx: number, sy: number) => page.evaluate(([px, py]) => {
+    const cv = document.querySelector('[data-testid="topdown-canvas"]') as HTMLCanvasElement;
+    const r = cv.getBoundingClientRect();
+    const dpr = cv.width / r.width;
+    const d = cv.getContext('2d')!.getImageData(
+      Math.round((px - r.left) * dpr), Math.round((py - r.top) * dpr), 1, 1).data;
+    return [d[0], d[1], d[2]];
+  }, [sx, sy]);
+
+  // 바닥은 왼쪽에만
+  await page.mouse.move(cx - 260, cy - 60);
+  await page.mouse.down();
+  await page.mouse.move(cx - 60, cy + 60, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+
+  // 구조 — 바닥 바깥(오른쪽)에 블록
+  await page.locator('.td-group[aria-label="그리기 대상"] .td-btn', { hasText: '구조' }).click();
+  await page.mouse.move(cx + 80, cy - 40);
+  await page.mouse.down();
+  await page.mouse.move(cx + 200, cy + 40, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+
+  // 엄폐 — 같은 바깥 영역에 블록
+  await page.locator('.td-group[aria-label="그리기 대상"] .td-btn', { hasText: '엄폐' }).click();
+  await page.mouse.move(cx + 80, cy + 90);
+  await page.mouse.down();
+  await page.mouse.move(cx + 200, cy + 150, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(600);
+
+  const ws = await readWorkspace(page);
+  expect(ws.projects[0].topdowns[0].struct.length).toBe(2);
+
+  // 구조 블록 한가운데 = 잉크 솔리드 (어두움)
+  const inStruct = await sample(cx + 140, cy);
+  expect(Math.max(...inStruct)).toBeLessThan(90);
+
+  // 엄폐 블록 한가운데 = 엄폐 채움색(--paper-300 #DCD2BD). 배경(--paper-200)도 잉크도 아니다
+  const inCover = await sample(cx + 140, cy + 120);
+  for (const [i, want] of [220, 210, 189].entries()) {
+    expect(Math.abs(inCover[i]! - want)).toBeLessThan(12);
+  }
 });
 
 test('구역 채움 — 안전·위험 다각형 + 실행취소', async ({ page }) => {

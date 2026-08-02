@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { TOPDOWN_GRID_PRESETS, type MarkerKind, type ZoneKind } from '../../types';
+import { TOPDOWN_GRID_PRESETS, type MarkerKind, type ZoneKind, type StrokeColor } from '../../types';
 import { useProject, undoProject, redoProject } from '../../store/project';
 import { downloadJSON } from '../../store/persistence';
 import { TopdownCanvas, type TdTool, type SnapStep, type TdTarget } from './TopdownCanvas';
-import { exportTopdownPNG, MARKER_DEFS } from './topdown-utils';
+import { exportTopdownPNG, MARKER_DEFS, STROKE_COLORS, STROKE_WIDTHS } from './topdown-utils';
 import './TopdownShell.css';
 
 /* ─────────────────────────────────────────────────────────
@@ -15,6 +15,7 @@ const TOOLS: { id: TdTool; label: string; key: string; title: string }[] = [
   { id: 'rect',     label: '사각형', key: 'R', title: '사각형 방 (R) — 드래그. 겹치면 자동 병합' },
   { id: 'ellipse',  label: '원형',   key: 'O', title: '원형/타원 방 (O) — 드래그' },
   { id: 'polygon',  label: '다각형', key: 'P', title: '다각형 방 (P) — 클릭으로 점, 더블클릭/Enter 완성, Esc 취소' },
+  { id: 'draw',     label: '드로잉', key: 'B', title: '드로잉 (B) — 드래그로 자유롭게 그리는 동선. 색·두께 설정 가능' },
   { id: 'corridor', label: '복도',   key: 'C', title: '복도 (C) — 클릭으로 경로, 더블클릭/Enter 완성. 폭 설정 가능' },
   { id: 'door',     label: '문',     key: 'D', title: '문 (D) — 벽 가까이 클릭하면 벽에 스냅되어 배치. 선택(V) 후 Delete로 삭제' },
   { id: 'stair',    label: '계단',   key: 'S', title: '계단 (S) — 드래그. 드래그 방향이 올라가는 방향 (끝이 좁아짐)' },
@@ -32,18 +33,21 @@ export function TopdownShell() {
   const removeTopdown = useProject((s) => s.removeTopdown);
   const renameTopdown = useProject((s) => s.renameTopdown);
   const updateTopdown = useProject((s) => s.updateTopdown);
+  const clearStrokes = useProject((s) => s.clearStrokes);
 
   const [tool, setTool] = useState<TdTool>('rect');
   const [erase, setErase] = useState(false);
   const [rough, setRough] = useState(false);
   const [snap, setSnap] = useState<SnapStep>(1);
-  const [corridorW, setCorridorW] = useState(2);   // m — 두께 그대로 (2m = 폭 2m)
+  const [corridorW, setCorridorW] = useState(6);   // m — 두께 그대로 (6m = 폭 6m)
   const [doorW, setDoorW] = useState(2);           // 셀 — 문 폭
   const [stairW, setStairW] = useState(2);         // 셀 — 계단 폭
   const [textSize, setTextSize] = useState(2);     // 셀 — 텍스트 높이
   const [markerKind, setMarkerKind] = useState<MarkerKind>('start');
-  const [target, setTarget] = useState<TdTarget>('floor');   // 그리기 대상 — 바닥/구조/엄폐
+  const [target, setTarget] = useState<TdTarget>('floor');   // 그리기 대상 — 바닥/구조/엄폐/동선
   const [zoneKind, setZoneKind] = useState<ZoneKind>('safe');
+  const [strokeColor, setStrokeColor] = useState<StrokeColor>('moss');
+  const [strokeWidth, setStrokeWidth] = useState(2);          // m — 동선 두께
   const [calibrating, setCalibrating] = useState(false);   // 오버레이 조정 모드
   const [history, setHistory] = useState({ past: 0, future: 0 });
 
@@ -65,23 +69,41 @@ export function TopdownShell() {
   const docs = project.topdowns ?? [];
   const doc = docs.find((t) => t.id === activeId) ?? docs[0] ?? null;
 
-  /* 단축키 — V/R/O/P/C 도구, E 빼기 토글 */
+  /* 도구 ↔ 대상 레이어 연동 —
+     동선 레이어에서는 드로잉만 쓸 수 있고, 드로잉을 고르면 대상이 동선으로 간다.
+     두 진입점(도구 버튼 / 레이어 버튼)이 항상 같은 상태로 수렴하게 한 곳에서 처리한다. */
+  /** 동선 레이어에서 쓸 수 있는 도구 — 그리기는 드로잉만, 지우기용 선택은 허용 */
+  const pathAllows = (t: TdTool) => t === 'draw' || t === 'select';
+
+  const chooseTool = (t: TdTool) => {
+    if (target === 'path' && !pathAllows(t)) return;
+    setTool(t);
+    if (t === 'draw') setTarget('path');
+  };
+  const chooseTarget = (t: TdTarget) => {
+    setTarget(t);
+    setTool((cur) => (t === 'path' ? 'draw' : cur === 'draw' ? 'rect' : cur));
+  };
+
+  /* 단축키 — V/R/O/P/B/C 도구, E 빼기 토글, 1~4 대상 레이어 */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey) return;
       const k = e.key.toUpperCase();
       const t = TOOLS.find((x) => x.key === k);
-      if (t) { setTool(t.id); return; }
+      if (t) { chooseTool(t.id); return; }
       if (k === 'E') setErase((v) => !v);
       if (k === 'F') setRough((v) => !v);
-      if (k === '1') setTarget('floor');
-      if (k === '2') setTarget('struct');
-      if (k === '3') setTarget('cover');
+      if (k === '1') chooseTarget('floor');
+      if (k === '2') chooseTarget('struct');
+      if (k === '3') chooseTarget('cover');
+      if (k === '4') chooseTarget('path');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target]);
 
   if (!doc) {
     return (
@@ -161,14 +183,18 @@ export function TopdownShell() {
 
         {/* 도구 */}
         <div className="td-group" role="toolbar" aria-label="도구">
-          {TOOLS.map((t) => (
-            <button
-              key={t.id}
-              className={`td-btn td-tool ${tool === t.id ? 'is-active' : ''}`}
-              onClick={() => setTool(t.id)}
-              title={t.title}
-            >{t.label}</button>
-          ))}
+          {TOOLS.map((t) => {
+            const locked = target === 'path' && !pathAllows(t.id);
+            return (
+              <button
+                key={t.id}
+                className={`td-btn td-tool ${tool === t.id ? 'is-active' : ''}`}
+                onClick={() => chooseTool(t.id)}
+                disabled={locked}
+                title={locked ? '동선 레이어에서는 드로잉·선택만 사용합니다 — 바닥/구조/엄폐로 전환하세요' : t.title}
+              >{t.label}</button>
+            );
+          })}
         </div>
 
         {/* 빼기·러프 모드 — Dungeon Scrawl의 E 토글 / rough 모드 */}
@@ -210,20 +236,60 @@ export function TopdownShell() {
         <div className="td-group" aria-label="그리기 대상">
           <button
             className={`td-btn ${target === 'floor' ? 'is-active' : ''}`}
-            onClick={() => setTarget('floor')}
+            onClick={() => chooseTarget('floor')}
             title="바닥 (1) — 플레이 공간. 그림자·해칭·외벽 자동"
           >바닥</button>
           <button
             className={`td-btn td-target-struct ${target === 'struct' ? 'is-active' : ''}`}
-            onClick={() => setTarget('struct')}
+            onClick={() => chooseTarget('struct')}
             title="구조 (2) — 내부 벽·기둥·검은 질량. 잉크 솔리드, 문 부착 가능"
           >구조</button>
           <button
             className={`td-btn td-target-cover ${target === 'cover' ? 'is-active' : ''}`}
-            onClick={() => setTarget('cover')}
+            onClick={() => chooseTarget('cover')}
             title="엄폐 (3) — 낮은 상자·난간·둔덕. 어두운 종이톤 채움"
           >엄폐</button>
+          <button
+            className={`td-btn td-target-path ${target === 'path' ? 'is-active' : ''}`}
+            onClick={() => chooseTarget('path')}
+            title="동선 (4) — 자유 드로잉 전용 레이어. 도형 병합에 관여하지 않는 주석"
+          >동선</button>
         </div>
+
+        {/* 동선 색·두께 — 드로잉 도구일 때만 */}
+        {tool === 'draw' && (
+          <>
+            <div className="td-group" aria-label="동선 색">
+              {STROKE_COLORS.map((c) => (
+                <button
+                  key={c.key}
+                  className={`td-btn td-stroke-swatch ${strokeColor === c.key ? 'is-active' : ''}`}
+                  data-stroke={c.key}
+                  onClick={() => setStrokeColor(c.key)}
+                  title={c.label}
+                  aria-label={c.label}
+                ><span className="td-stroke-dot" />{c.label}</button>
+              ))}
+            </div>
+            <div className="td-group" aria-label="동선 두께">
+              {STROKE_WIDTHS.map((w) => (
+                <button
+                  key={w}
+                  className={`td-btn ${strokeWidth === w ? 'is-active' : ''}`}
+                  onClick={() => setStrokeWidth(w)}
+                  title={`선 두께 ${w}m (${w * 100}uu)`}
+                >{w}m</button>
+              ))}
+              <button
+                className="td-btn td-stroke-clear"
+                data-testid="td-stroke-clear"
+                onClick={() => clearStrokes(doc.id)}
+                disabled={(doc.strokes ?? []).length === 0}
+                title={`이 평면도의 동선 ${(doc.strokes ?? []).length}획을 모두 지웁니다 (Ctrl+Z로 복구)`}
+              >비우기 {(doc.strokes ?? []).length}</button>
+            </div>
+          </>
+        )}
 
         {/* 복도 폭 — 복도 도구일 때만. 값 = 실제 두께 */}
         {tool === 'corridor' && (
@@ -357,6 +423,16 @@ export function TopdownShell() {
           >해칭</button>
         </div>
 
+        {/* 동선 레이어 표시 — 버블 토글과 같은 문법. 끄면 렌더·선택·내보내기에서 함께 빠진다 */}
+        <div className="td-group" aria-label="동선 표시">
+          <button
+            className={`td-btn td-path-toggle ${doc.pathVisible !== false ? 'is-active' : ''}`}
+            data-testid="td-path-toggle"
+            onClick={() => updateTopdown(doc.id, { pathVisible: doc.pathVisible === false })}
+            title={`동선 레이어 표시 — 끄면 획 ${(doc.strokes ?? []).length}개가 도면·내보내기에서 숨겨집니다 (데이터는 보존)`}
+          >동선</button>
+        </div>
+
         {/* 버블 오버레이 — 투명도 50% 시작, 숨김·조정(이동/스케일) 가능 */}
         <div className="td-group" aria-label="버블 오버레이">
           <button
@@ -437,6 +513,8 @@ export function TopdownShell() {
         stairW={stairW}
         textSize={textSize}
         markerKind={markerKind}
+        strokeColor={strokeColor}
+        strokeWidth={strokeWidth}
         zoneKind={zoneKind}
         target={target}
         calibrating={calibrating && doc.overlay.visible}
