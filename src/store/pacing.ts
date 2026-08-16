@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { temporal } from 'zundo';
-import type { PacingDoc, PacingPoint, PacingMarker } from '../types';
+import type { PacingDoc, PacingPoint, PacingMarker, PacingNodeKind } from '../types';
 import { emptyPacing } from '../types';
 import { uid } from '../utils/id';
 
@@ -23,6 +23,7 @@ interface PacingStore {
   removePoint: (docId: string, id: string) => void;
   addMarker: (docId: string, m: PacingMarker) => void;
   moveMarker: (docId: string, id: string, at: number, tension: number) => void;
+  setMarkerNode: (docId: string, id: string, node: PacingNodeKind) => void;
   removeMarker: (docId: string, id: string) => void;
 }
 
@@ -85,6 +86,7 @@ export const usePacing = create<PacingStore>()(
         removePoint: (docId, id) => mutDoc(docId, (d) => ({ ...d, points: d.points.filter((p) => p.id !== id) })),
         addMarker: (docId, m) => mutDoc(docId, (d) => ({ ...d, markers: [...d.markers, m] })),
         moveMarker: (docId, id, at, tension) => mutDoc(docId, (d) => ({ ...d, markers: d.markers.map((m) => m.id === id ? { ...m, at: clamp01(at), tension: clampT(tension) } : m) })),
+        setMarkerNode: (docId, id, node) => mutDoc(docId, (d) => ({ ...d, markers: d.markers.map((m) => m.id === id ? { ...m, node } : m) })),
         removeMarker: (docId, id) => mutDoc(docId, (d) => ({ ...d, markers: d.markers.filter((m) => m.id !== id) })),
       };
     },

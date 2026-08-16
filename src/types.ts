@@ -353,7 +353,18 @@ export const emptyFlow = (id: string, name = '흐름 1'): FlowDoc => ({
 /* ── 페이싱 곡선 에디터 (50·51강) ── */
 export interface PacingSegment { id: string; name: string; width: number; } // width=체류 비중(상대, ≥1)
 export interface PacingPoint { id: string; segId: string; t: number; tension: number; } // t∈[0,1] 구간 내, tension∈[0,100]
-export interface PacingMarker { id: string; kind: 'peak' | 'valley' | 'gap' | 'flag'; at: number; tension: number; } // at∈[0,1] 곡선 전체 진행
+/** 경로 노드 7유형 — CGMA 「플레이어의 경로와 노드」. 49강의 세 계열 분류를 그대로 따른다.
+ *  확인 계열: continue(연속)·deviate(편차) — 기대를 쌓는 구간
+ *  부정 계열: redirect(방향 전환)·reverse(반전)·deadend(막다른 길)
+ *  선택 계열: diverge(발산)·converge(수렴) */
+export type PacingNodeKind =
+  | 'continue' | 'deviate'
+  | 'redirect' | 'reverse' | 'deadend'
+  | 'diverge' | 'converge';
+
+/** 곡선 위 표기 — node(경로 노드) / gap(간극) / flag(도착 감정 지점).
+ *  node일 때만  필드로 7유형을 지정한다. */
+export interface PacingMarker { id: string; kind: 'node' | 'gap' | 'flag'; node?: PacingNodeKind; at: number; tension: number; } // at∈[0,1] 곡선 전체 진행
 
 /** 페이싱 문서 — 곡선(구간·점·표기)만 담는다. 배경 맵·핀은 v0.2에서 제거(페이싱은 시간축만 다룸) */
 export interface PacingDoc {

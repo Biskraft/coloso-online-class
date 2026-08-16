@@ -61,19 +61,19 @@ const JG_POINTS: PacingPoint[] = [
 /* 표기 — at은 전체 진행률(0~1). 구간 폭 8:8:6(합 2.8) 기준으로 계산된 값.
    시작 지점 0~0.3571 · 지상 섬 0.3571~0.7143 · 공중 섬 0.7143~1 */
 const JG_MARKERS: PacingMarker[] = [
-  // 잠기는 지붕을 서둘러 건너는 첫 정점 (jg-p07)
-  { id: 'jg-m-peak1', kind: 'peak', at: 0.2964, tension: 60 },
-  // 무너진 입구로 들어서 한숨 돌리는 골 (jg-p08)
-  { id: 'jg-m-valley1', kind: 'valley', at: 0.3393, tension: 35 },
-  // 빗장 걸린 문 앞 — 조건적 거절의 정점 (jg-p13)
-  { id: 'jg-m-peak2', kind: 'peak', at: 0.5607, tension: 65 },
-  // 어두운 본거지 진입 — 두 번째 이완 (jg-p16)
-  { id: 'jg-m-valley2', kind: 'valley', at: 0.6964, tension: 40 },
+  // 잠기는 지붕을 서둘러 건너감 — 방향이 유지되며 확신이 쌓임 (jg-p07)
+  { id: 'jg-m-n1', kind: 'node', node: 'continue', at: 0.2964, tension: 60 },
+  // 무너진 입구로 우회해 들어섬 — 사소한 우회 (jg-p08)
+  { id: 'jg-m-n2', kind: 'node', node: 'deviate', at: 0.3393, tension: 35 },
+  // 빗장 걸린 문 앞 — 전진이 멈추고 옆길을 찾음 (jg-p13)
+  { id: 'jg-m-n3', kind: 'node', node: 'redirect', at: 0.5607, tension: 65 },
+  // 본거지 앞 두 갈래 — 어느 쪽으로도 갈 수 있음 (jg-p16)
+  { id: 'jg-m-n4', kind: 'node', node: 'diverge', at: 0.6964, tension: 40 },
   // 바람길이 끊긴 지점 — 간극(The Gap) (jg-p20)
   { id: 'jg-m-gap', kind: 'gap', at: 0.8571, tension: 70 },
-  // 마지막 상승 — 여정 전체의 정점 (jg-p22)
-  { id: 'jg-m-peak3', kind: 'peak', at: 0.9486, tension: 85 },
-  // 공중 성 도착 — 끝 감정값 (jg-p23)
+  // 갈래가 다시 만나는 마지막 상승 (jg-p22)
+  { id: 'jg-m-n5', kind: 'node', node: 'converge', at: 0.9486, tension: 85 },
+  // 공중 성 도착 — 도착 감정 지점 (jg-p23)
   { id: 'jg-m-flag', kind: 'flag', at: 0.9914, tension: 30 },
 ];
 

@@ -175,3 +175,38 @@ test('구간 선택 → 이름 편집 → 삭제', async ({ page }) => {
   expect(doc.segments.length).toBe(beforeCount - 1);
   expect(doc.segments.find((s: any) => s.name === '보스룸')).toBeFalsy();
 });
+
+/* 노드 7유형 — CGMA 「플레이어의 경로와 노드」를 도구로 옮긴 표기(49·50강) */
+test('노드 표기 — 프리셋 시드 · 사이드에서 7유형 선택', async ({ page }) => {
+  await page.getByTestId('enter-pacing').click();
+  await expect(page.getByTestId('pacing-shell')).toBeVisible();
+
+  // 도구 팔레트에 노드가 있고 산골은 사라졌다
+  await expect(page.getByRole('button', { name: '노드' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '산골' })).toHaveCount(0);
+
+  await page.getByTestId('pac-preset').selectOption('joryeonggwan');
+  await page.waitForTimeout(800);
+
+  const ws = await readPacing(page);
+  const seeded = ws.docs[ws.docs.length - 1];
+  const nodes = seeded.markers.filter((m: any) => m.kind === 'node');
+  // 세 계열이 모두 시드에 들어 있다 — 확인·부정·선택
+  expect(nodes.length).toBe(5);
+  const kinds = nodes.map((m: any) => m.node);
+  expect(kinds).toContain('continue');   // 확인
+  expect(kinds).toContain('redirect');   // 부정
+  expect(kinds).toContain('diverge');    // 선택
+
+  // 사이드에 노드 행이 뜨고, 유형 버튼으로 바꿀 수 있다
+  await expect(page.getByTestId('pac-node-row')).toHaveCount(5);
+  await page.getByTestId('pac-node-reverse').first().click();
+  await page.waitForTimeout(600);
+
+  const after = await readPacing(page);
+  const doc2 = after.docs[after.docs.length - 1];
+  const first = doc2.markers.filter((m: any) => m.kind === 'node').sort((a: any, b: any) => a.at - b.at)[0];
+  expect(first.node).toBe('reverse');
+
+  
+});
