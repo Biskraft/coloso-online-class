@@ -11,6 +11,20 @@ import { fileToSizedImage, MIN_IMAGE_DIM } from '../../utils/image';
 import type { NodeType, DecorationKind } from '../../types';
 import './SvgCanvas.css';
 
+/**
+ * foreignObject 라벨의 정렬 규칙 — SvgCanvas.css의 같은 선언을 내보내기 경로까지 옮겨 심는 사본.
+ * html-to-image는 <svg> 서브트리를 네이티브 deep clone으로 통째 복제하고 자식 순회를 멈추므로
+ * (node_modules/html-to-image/es/clone-node.js), 내부 HTML에는 계산된 스타일이 인라인되지 않는다.
+ * 앱 스타일시트도 내보낸 문서에는 없다 → 정렬만은 SVG 안에 직접 실어 보낸다.
+ * 값은 SvgCanvas.css와 동일하게 유지할 것.
+ */
+const EXPORT_LABEL_CSS = `
+.bn-name { text-align: center; }
+.bn-icon-tags { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 3px 4px; }
+.deco-text { display: flex; align-items: center; justify-content: center; text-align: center; }
+.edge-label { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%; box-sizing: border-box; }
+`;
+
 interface DragState {
   kind: 'node' | 'edge' | 'resize' | 'deco-move' | 'deco-arrow' | 'deco-resize' | 'img-move' | 'img-resize' | 'group' | 'box-select' | 'none';
   nodeId?: string;
@@ -403,6 +417,12 @@ export function SvgCanvas() {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
+        {/* 내보내기용 정렬 규칙 — SVG 서브트리 안에 둔다.
+            html-to-image는 <svg>를 만나면 네이티브 deep clone 후 자식 순회를 멈춰서
+            foreignObject 안 HTML에 계산된 스타일을 인라인하지 못한다. 외부 스타일시트도 따라가지 않는다.
+            여기 선언한 규칙만 클론과 함께 복제되어 내보낸 이미지에서도 라벨이 중앙에 남는다. */}
+        <style>{EXPORT_LABEL_CSS}</style>
+
         <defs>
           <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse">
             <circle cx="1" cy="1" r="0.6" fill="rgba(44, 95, 124, 0.20)" />

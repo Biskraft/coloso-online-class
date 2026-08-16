@@ -231,14 +231,14 @@ export interface TopdownStyle {
   shadow: boolean;     // 벽 그림자
 }
 
-export const TOPDOWN_MAX_GRID = 512;
-export const TOPDOWN_GRID_PRESETS = [32, 48, 64, 96, 128, 192, 256, 384, 512] as const;
+export const TOPDOWN_MAX_GRID = 1024;
+export const TOPDOWN_GRID_PRESETS = [32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024] as const;
 
 export interface TopdownDoc {
   id: string;
   name: string;
   week?: number;
-  grid: [number, number];           // [cols, rows] — 최대 512 (스냅·범위 기준). 1셀 = 1m 고정 (1m = 100uu)
+  grid: [number, number];           // [cols, rows] — 최대 1024 (스냅·범위 기준). 1셀 = 1m 고정 (1m = 100uu)
   overlay: TopdownOverlay;
   /** 배경 참조 이미지 — 모든 도형보다 아래에 렌더 */
   images: TdImage[];
