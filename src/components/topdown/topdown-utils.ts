@@ -809,7 +809,7 @@ export interface TdRenderOut {
 }
 
 /** 평면도 문서를 오프스크린 캔버스에 렌더(그리드·버블 오버레이 제외, 캡션 포함).
- *  PNG 다운로드(exportTopdownPNG)와 dataURL 추출(topdownToDataURL)이 공유하는 코어. */
+ *  PNG 다운로드(exportTopdownPNG)가 사용하는 코어. */
 export function renderTopdownCanvas(doc: TopdownDoc, out: TdRenderOut = {}): HTMLCanvasElement {
   const [cols, rows] = doc.grid;
   // 긴 변 = cellPx * (긴쪽 셀 수 + 여백 4셀)이 TD_EXPORT_MAX_PX가 되도록 셀 크기를 역산.
@@ -878,12 +878,6 @@ export function renderTopdownCanvas(doc: TopdownDoc, out: TdRenderOut = {}): HTM
     ctx.stroke();
   }
   return cv;
-}
-
-/** 평면도 문서 → PNG dataURL + 픽셀 크기. 다른 에디터(페이싱 등)의 배경 맵으로 재사용. */
-export function topdownToDataURL(doc: TopdownDoc): { dataUrl: string; w: number; h: number } {
-  const cv = renderTopdownCanvas(doc);
-  return { dataUrl: cv.toDataURL('image/png'), w: cv.width, h: cv.height };
 }
 
 export function exportTopdownPNG(doc: TopdownDoc, filename?: string) {

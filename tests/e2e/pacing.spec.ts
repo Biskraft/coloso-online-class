@@ -91,37 +91,34 @@ test('프리셋 → 조령관 곡선 시드 + 내보내기 버튼', async ({ pag
   await expect(page.getByRole('button', { name: 'JSON 내보내기' })).toBeVisible();
 });
 
-test('내 평면도에서 맵 불러오기 → 배경 맵으로 설정', async ({ page }) => {
-  // 1) 평면도(Top-down) 하나 그리기 — 기본 사각형 도구로 방 하나
-  await page.getByTestId('enter-topdown').click();
-  await expect(page.getByTestId('topdown-shell')).toBeVisible();
-  const tb = (await page.getByTestId('topdown-canvas').boundingBox())!;
-  const tcx = tb.x + tb.width / 2;
-  const tcy = tb.y + tb.height / 2;
-  await page.mouse.move(tcx - 100, tcy - 70);
-  await page.mouse.down();
-  await page.mouse.move(tcx + 60, tcy + 50, { steps: 6 });
-  await page.mouse.up();
-  await page.waitForTimeout(300);
-
-  // 2) 버블 복귀(Esc → 확인창 → 나가기) → 페이싱 진입
-  await page.keyboard.press('Escape');
-  await page.getByTestId('td-exit-ok').click();
+test('맵 패널·핀 제거 — 페이싱은 곡선만 다룬다', async ({ page }) => {
   await page.getByTestId('enter-pacing').click();
   await expect(page.getByTestId('pacing-shell')).toBeVisible();
 
-  // 3) '내 평면도에서' 셀렉트에 방금 만든 평면도가 뜨고, 선택하면 배경 맵으로 설정됨
-  const sel = page.getByTestId('pac-map-topdown');
-  await expect(sel).toBeEnabled();
-  const firstVal = await sel.locator('option').nth(1).getAttribute('value');
-  expect(firstVal).toBeTruthy();
-  await sel.selectOption(firstVal!);
-  await page.waitForTimeout(600);
+  // 맵 불러오기 UI(평면도 셀렉트·이미지 파일 버튼)와 핀 도구가 모두 사라짐
+  await expect(page.getByTestId('pac-map-topdown')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '이미지 파일…' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '핀', exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('pacing-map')).toHaveCount(0);
 
+  // 저장 데이터에도 map·pins 필드가 남지 않음
+  await page.getByRole('button', { name: '구간+' }).click();
+  await page.waitForTimeout(800);
   const ws = await readPacing(page);
-  expect(ws.docs[0].map).toBeTruthy();
-  expect((ws.docs[0].map.dataUrl as string).startsWith('data:image/png')).toBe(true);
-  expect(ws.docs[0].map.w).toBeGreaterThan(0);
+  expect(ws.docs[0].map).toBeUndefined();
+  expect(ws.docs[0].pins).toBeUndefined();
+});
+
+test('PNG 내보내기 캡처 범위 — 곡선만 포함하고 사이드 패널은 제외', async ({ page }) => {
+  await page.getByTestId('enter-pacing').click();
+  await expect(page.getByTestId('pacing-shell')).toBeVisible();
+
+  // .pac-export 안에는 곡선 캔버스만 있고, 구간 편집 사이드(pac-seg-name)는 바깥에 있다
+  const exportBox = page.locator('.pac-export');
+  await expect(exportBox).toHaveCount(1);
+  await expect(exportBox.getByTestId('pacing-canvas')).toHaveCount(1);
+  await expect(exportBox.getByTestId('pac-seg-name')).toHaveCount(0);
+  await expect(exportBox.getByTestId('pac-seg-list')).toHaveCount(0);
 });
 
 test('구간+ 추가 시 새 구간 자동 선택 → 편집칸 즉시 노출', async ({ page }) => {

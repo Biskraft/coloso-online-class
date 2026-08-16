@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { temporal } from 'zundo';
-import type { PacingDoc, PacingPoint, PacingMarker, PacingMap, PacingPin } from '../types';
+import type { PacingDoc, PacingPoint, PacingMarker } from '../types';
 import { emptyPacing } from '../types';
 import { uid } from '../utils/id';
 
@@ -24,10 +24,6 @@ interface PacingStore {
   addMarker: (docId: string, m: PacingMarker) => void;
   moveMarker: (docId: string, id: string, at: number, tension: number) => void;
   removeMarker: (docId: string, id: string) => void;
-  setMap: (docId: string, map: PacingMap | null) => void;
-  addPin: (docId: string, pin: PacingPin) => void;
-  movePin: (docId: string, id: string, mx: number, my: number) => void;
-  removePin: (docId: string, id: string) => void;
 }
 
 function loadStored(): { docs: PacingDoc[]; currentId: string } | null {
@@ -42,8 +38,7 @@ function loadStored(): { docs: PacingDoc[]; currentId: string } | null {
       segments: Array.isArray(d.segments) ? d.segments : [],
       points: Array.isArray(d.points) ? d.points : [],
       markers: Array.isArray(d.markers) ? d.markers : [],
-      map: d.map ?? null,
-      pins: Array.isArray(d.pins) ? d.pins : [],
+      // 구버전 저장본의 map·pins는 읽지 않고 버린다(맵 패널 제거, v0.2)
     }));
     const currentId = docs.some((d) => d.id === p.currentId) ? p.currentId : docs[0].id;
     return { docs, currentId };
@@ -84,7 +79,6 @@ export const usePacing = create<PacingStore>()(
         removeSegment: (docId, segId) => mutDoc(docId, (d) => d.segments.length <= 1 ? d : ({
           ...d, segments: d.segments.filter((s) => s.id !== segId),
           points: d.points.filter((p) => p.segId !== segId),
-          pins: d.pins.filter((p) => p.segId !== segId),
         })),
         addPoint: (docId, p) => mutDoc(docId, (d) => ({ ...d, points: [...d.points, p] })),
         movePoint: (docId, id, segId, t, tension) => mutDoc(docId, (d) => ({ ...d, points: d.points.map((p) => p.id === id ? { ...p, segId, t: clamp01(t), tension: clampT(tension) } : p) })),
@@ -92,10 +86,6 @@ export const usePacing = create<PacingStore>()(
         addMarker: (docId, m) => mutDoc(docId, (d) => ({ ...d, markers: [...d.markers, m] })),
         moveMarker: (docId, id, at, tension) => mutDoc(docId, (d) => ({ ...d, markers: d.markers.map((m) => m.id === id ? { ...m, at: clamp01(at), tension: clampT(tension) } : m) })),
         removeMarker: (docId, id) => mutDoc(docId, (d) => ({ ...d, markers: d.markers.filter((m) => m.id !== id) })),
-        setMap: (docId, map) => mutDoc(docId, (d) => ({ ...d, map })),
-        addPin: (docId, pin) => mutDoc(docId, (d) => ({ ...d, pins: [...d.pins, pin] })),
-        movePin: (docId, id, mx, my) => mutDoc(docId, (d) => ({ ...d, pins: d.pins.map((p) => p.id === id ? { ...p, mx: clamp01(mx), my: clamp01(my) } : p) })),
-        removePin: (docId, id) => mutDoc(docId, (d) => ({ ...d, pins: d.pins.filter((p) => p.id !== id) })),
       };
     },
     { partialize: (s) => ({ docs: s.docs, currentId: s.currentId }) as any, limit: 80, equality: (a: any, b: any) => a.docs === b.docs },

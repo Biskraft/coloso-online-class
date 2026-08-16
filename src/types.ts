@@ -354,9 +354,8 @@ export const emptyFlow = (id: string, name = '흐름 1'): FlowDoc => ({
 export interface PacingSegment { id: string; name: string; width: number; } // width=체류 비중(상대, ≥1)
 export interface PacingPoint { id: string; segId: string; t: number; tension: number; } // t∈[0,1] 구간 내, tension∈[0,100]
 export interface PacingMarker { id: string; kind: 'peak' | 'valley' | 'gap' | 'flag'; at: number; tension: number; } // at∈[0,1] 곡선 전체 진행
-export interface PacingMap { dataUrl: string; w: number; h: number; }
-export interface PacingPin { id: string; segId: string; mx: number; my: number; } // 맵 정규화 좌표 0~1
 
+/** 페이싱 문서 — 곡선(구간·점·표기)만 담는다. 배경 맵·핀은 v0.2에서 제거(페이싱은 시간축만 다룸) */
 export interface PacingDoc {
   id: string;
   name: string;
@@ -364,8 +363,6 @@ export interface PacingDoc {
   segments: PacingSegment[];
   points: PacingPoint[];
   markers: PacingMarker[];
-  map: PacingMap | null;
-  pins: PacingPin[];
 }
 
 export const emptyPacing = (id: string, name = '페이싱 1'): PacingDoc => ({
@@ -375,8 +372,6 @@ export const emptyPacing = (id: string, name = '페이싱 1'): PacingDoc => ({
   segments: [{ id: id + '-s0', name: '구간 1', width: 1 }],
   points: [],
   markers: [],
-  map: null,
-  pins: [],
 });
 
 export interface Project {

@@ -17,14 +17,14 @@ const SEG_COLORS = [
   'var(--ochre-soft)',
 ];
 
-/** 구간 id → 팔레트 색(구간 배열 내 인덱스 기준 순환). 핀·범례에서 공용으로 사용 */
+/** 구간 id → 팔레트 색(구간 배열 내 인덱스 기준 순환). 곡선 구간 범례에서 사용 */
 export function segColor(doc: PacingDoc, segId: string): string {
   const i = doc.segments.findIndex((s) => s.id === segId);
   return SEG_COLORS[(i < 0 ? 0 : i) % SEG_COLORS.length];
 }
 
-/** 페이싱 캔버스 도구 — select(기본) / point(추가) / peakvalley·gap·flag(마커) / pin(맵 핀) */
-export type PacTool = 'select' | 'point' | 'peakvalley' | 'gap' | 'flag' | 'pin';
+/** 페이싱 캔버스 도구 — select(기본) / point(추가) / peakvalley·gap·flag(마커) */
+export type PacTool = 'select' | 'point' | 'peakvalley' | 'gap' | 'flag';
 
 /** SVG viewBox 고정 크기 + 축 여백 */
 export const VIEW = { W: 900, H: 460, pad: 44 };
@@ -77,8 +77,7 @@ const MARKER_NEAR_PX = 24;
 export interface PacingCanvasProps {
   doc: PacingDoc;
   tool: PacTool;
-  mapMode: boolean;
-  /** 핀이 붙을 구간(맵 패널과 공유) — 곡선 하단 구간 이름 클릭으로 갱신 */
+  /** 편집 중인 구간 — 곡선 하단 구간 이름 클릭 또는 사이드 목록 클릭으로 갱신 */
   selSeg?: string | null;
   onSelectSeg?: (segId: string) => void;
   onStatus: (msg: string) => void;
@@ -91,10 +90,9 @@ const TENSION_TICKS = [0, 50, 100];
  * SVG 캔버스 골격 — 청사진 그리드, 긴장 눈금, 구간 경계·이름, 곡선, 포인트, 표기.
  * 포인트 생성(빈 곳 클릭, point 도구)·드래그·삭제(Alt+클릭/우클릭)는 Task 6에서 구현됨.
  * 표기(산/골/번개/깃발) 부착·드래그·삭제는 Task 8에서 구현됨.
- * 맵 패널·핀은 `PacingMapPanel`(이 파일 하단)이 담당 — 구간 이름 클릭으로 `selSeg`를 갱신해 연결된다.
- * `mapMode`는 곡선 캔버스 자체에는 쓰이지 않음(맵 패널에서 tool==='pin' 여부로 대체 판정).
+ * 곡선 하단 구간 이름 클릭으로 `selSeg`가 갱신되어 사이드 구간 편집칸과 연결된다.
  */
-export function PacingCanvas({ doc, tool, mapMode: _mapMode, selSeg, onSelectSeg, onStatus }: PacingCanvasProps) {
+export function PacingCanvas({ doc, tool, selSeg, onSelectSeg, onStatus }: PacingCanvasProps) {
   const { W, H, pad } = VIEW;
 
   const addPoint = usePacing((s) => s.addPoint);
@@ -356,7 +354,7 @@ export function PacingCanvas({ doc, tool, mapMode: _mapMode, selSeg, onSelectSeg
           );
         })}
 
-        {/* 가로축 구간 경계 세로선 + 구간 이름(클릭으로 selSeg 갱신 — 핀이 붙을 구간 선택) */}
+        {/* 가로축 구간 경계 세로선 + 구간 이름(클릭으로 selSeg 갱신 — 사이드 구간 편집칸 연동) */}
         {bounds.map((b, i) => {
           const x0 = px(b.x0);
           const x1 = px(b.x1);
@@ -439,137 +437,6 @@ export function PacingCanvas({ doc, tool, mapMode: _mapMode, selSeg, onSelectSeg
             >
               <circle cx={cx} cy={cy} r={20} fill="transparent" />
               <circle cx={cx} cy={cy} r={6} fill="var(--paper-50)" stroke="var(--ochre)" strokeWidth={2} />
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
-export interface PacingMapPanelProps {
-  doc: PacingDoc;
-  tool: PacTool;
-  /** 새 핀이 붙을 구간 — 없으면 첫 구간으로 대체 */
-  selSeg: string | null;
-  onStatus: (msg: string) => void;
-}
-
-/**
- * 맵 패널 — 배경 이미지(viewBox = 맵 원본 픽셀) 위에 구간색 핀을 배치·드래그·삭제.
- * `doc.map`이 없으면 안내 문구만 표시. 핀 생성은 tool==='pin'일 때 빈 곳 클릭,
- * 기존 핀의 드래그·Alt+클릭/우클릭 삭제는 도구와 무관하게 항상 가능(점·표기와 동일 규칙).
- */
-export function PacingMapPanel({ doc, tool, selSeg, onStatus }: PacingMapPanelProps) {
-  const addPin = usePacing((s) => s.addPin);
-  const movePin = usePacing((s) => s.movePin);
-  const removePin = usePacing((s) => s.removePin);
-
-  const svgRef = useRef<SVGSVGElement | null>(null);
-  const draggingPinId = useRef<string | null>(null);
-
-  if (!doc.map) {
-    return (
-      <div className="pac-canvas pac-map-canvas pac-map-empty">
-        맵 불러오기 — 상단 [맵 불러오기] 버튼으로 배경 이미지를 선택하면 이 곳에 표시됩니다.
-      </div>
-    );
-  }
-
-  const { dataUrl, w, h } = doc.map;
-  /** 핀 표시 반경 — 맵 원본 해상도에 대한 비율이라 표시 크기가 이미지 크기와 무관하게 일정 */
-  const r = Math.max(4, Math.min(w, h) * 0.012);
-
-  const localMxMy = (e: React.PointerEvent<SVGSVGElement>) => {
-    const svg = svgRef.current!;
-    const { x, y } = toLocal(e, svg);
-    return { mx: Math.max(0, Math.min(1, x / w)), my: Math.max(0, Math.min(1, y / h)) };
-  };
-
-  /** 빈 곳(배경) pointerdown — pin 도구일 때만 새 핀 생성, 선택 구간 없으면 첫 구간으로 */
-  const handleBgPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (tool !== 'pin') return;
-    const svg = svgRef.current;
-    if (!svg) return;
-    const segId = selSeg ?? doc.segments[0]?.id;
-    if (!segId) return;
-    const { mx, my } = localMxMy(e);
-    addPin(doc.id, { id: uid('pc-pin'), segId, mx, my });
-    onStatus('핀 추가');
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!draggingPinId.current) return;
-    const { mx, my } = localMxMy(e);
-    movePin(doc.id, draggingPinId.current, mx, my);
-  };
-
-  const endDrag = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!draggingPinId.current) return;
-    draggingPinId.current = null;
-    const svg = svgRef.current;
-    if (svg && svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
-  };
-
-  /** 핀 pointerdown — Alt+클릭은 즉시 삭제, 아니면 드래그 시작 */
-  const handlePinPointerDown = (id: string) => (e: React.PointerEvent<SVGGElement>) => {
-    e.stopPropagation();
-    if (e.altKey) {
-      removePin(doc.id, id);
-      onStatus('핀 삭제');
-      return;
-    }
-    const svg = svgRef.current;
-    if (!svg) return;
-    draggingPinId.current = id;
-    svg.setPointerCapture(e.pointerId);
-  };
-
-  const handlePinContextMenu = (id: string) => (e: React.MouseEvent<SVGGElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    removePin(doc.id, id);
-    onStatus('핀 삭제');
-  };
-
-  return (
-    <div className="pac-canvas pac-map-canvas">
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${w} ${h}`}
-        data-testid="pacing-map"
-        onPointerDown={handleBgPointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        style={{ cursor: tool === 'pin' ? 'crosshair' : 'default', touchAction: 'none' }}
-      >
-        <image href={dataUrl} x={0} y={0} width={w} height={h} preserveAspectRatio="xMidYMid meet" />
-
-        {doc.pins.map((p) => {
-          const seg = doc.segments.find((s) => s.id === p.segId);
-          const color = segColor(doc, p.segId);
-          const cx = p.mx * w;
-          const cy = p.my * h;
-          return (
-            <g
-              key={p.id}
-              className="pac-pin"
-              onPointerDown={handlePinPointerDown(p.id)}
-              onContextMenu={handlePinContextMenu(p.id)}
-              style={{ cursor: 'grab', touchAction: 'none' }}
-            >
-              <circle cx={cx} cy={cy} r={r * 3} fill="transparent" />
-              <circle cx={cx} cy={cy} r={r} fill={color} stroke="var(--paper-50)" strokeWidth={Math.max(1, r * 0.3)} />
-              <text
-                x={cx + r + r * 0.6}
-                y={cy + r * 0.4}
-                className="pac-pin-label"
-                style={{ fontSize: r * 1.8 }}
-                fill={color}
-              >
-                {seg?.name ?? '?'}
-              </text>
             </g>
           );
         })}
