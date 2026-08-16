@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
-import type { PacingDoc, PacingNodeKind } from '../../types';
+import type { PacingDoc } from '../../types';
 import { hintForTension, monotoneCubic, segmentBounds, sortedSamples } from './pacing-utils';
-import { segColor, NODE_META } from './PacingCanvas';
+import { segColor } from './PacingCanvas';
 import { usePacing } from '../../store/pacing';
 
 /* ─────────────────────────────────────────────────────────
@@ -11,7 +11,6 @@ import { usePacing } from '../../store/pacing';
    ② 유형 힌트(읽기 전용, 51강): 선택 구간의 대표 tension으로 권장 공간 유형을 자동 표시.
       곡선 값에서 파생되는 가이드라 편집 대상이 아님 — '읽기 전용'을 명시해 편집 영역과 구분.
    ③ 구간 편집(50강): 이름/체류 비중/삭제 — 실제로 고치는 곳.
-   ④ 노드 편집(49·50강): 곡선에 찍은 노드의 7유형을 세 계열로 묶어 고른다.
    기존 .pac-side/.pac-side-title/.pac-side-hint/.pac-seg-list/.pac-seg-item 클래스 재사용,
    추가 컨트롤·구분선은 인라인 스타일로만. */
 
@@ -55,8 +54,6 @@ export function PacingSide({
   const renameSegment = usePacing((s) => s.renameSegment);
   const setSegmentWidth = usePacing((s) => s.setSegmentWidth);
   const removeSegment = usePacing((s) => s.removeSegment);
-  const setMarkerNode = usePacing((s) => s.setMarkerNode);
-  const nodes = doc.markers.filter((m) => m.kind === 'node').sort((x, y) => x.at - y.at);
 
   const seg = selectedSegId ? doc.segments.find((s) => s.id === selectedSegId) ?? null : null;
 
@@ -193,43 +190,6 @@ export function PacingSide({
         </div>
       </div>
 
-      {/* ④ 노드 편집 — 곡선에 찍은 노드의 유형을 세 계열로 묶어 선택 */}
-      <div className="pac-side-block" data-testid="pac-node-block">
-        <div className="pac-side-title">노드 유형</div>
-        {nodes.length === 0 ? (
-          <div className="pac-side-hint">
-            곡선 위에 노드(N)를 찍으면 여기서 유형을 고릅니다. 경로가 꺾이는 사건을 표시하는 표기입니다.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {nodes.map((m, i) => (
-              <div key={m.id} data-testid="pac-node-row" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)', color: 'var(--ink-500)' }}>
-                  노드 {i + 1} · {Math.round(m.at * 100)}%
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                  {(Object.keys(NODE_META) as PacingNodeKind[]).map((nk) => {
-                    const on = (m.node ?? 'continue') === nk;
-                    return (
-                      <button
-                        key={nk}
-                        className={`td-btn ${on ? 'is-active' : ''}`}
-                        data-testid={`pac-node-${nk}`}
-                        onClick={() => setMarkerNode(doc.id, m.id, nk)}
-                        title={`${NODE_META[nk].family} 계열 — ${NODE_META[nk].label}`}
-                        style={{ fontSize: 'var(--fs-xs)', padding: '2px 7px' }}
-                      >{NODE_META[nk].label}</button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-            <div className="pac-side-hint">
-              반전과 방향 전환을 여정 초반에 두지 않습니다. 확인 계열로 기대를 쌓은 뒤에 부정 계열을 던집니다.
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

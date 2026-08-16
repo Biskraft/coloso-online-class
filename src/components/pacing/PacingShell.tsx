@@ -19,8 +19,6 @@ import './PacingShell.css';
 const TOOLS: { id: PacTool; label: string; key: string; title: string }[] = [
   { id: 'select',    label: '선택', key: 'V', title: '선택 (V) — 점 이동·삭제는 도구와 무관하게 항상 가능' },
   { id: 'point',     label: '점',   key: 'P', title: '점 (P) — 빈 곳 클릭으로 곡선 위에 점 추가' },
-  { id: 'node',      label: '노드', key: 'N', title: '노드 (N) — 경로가 꺾이는 사건. 찍으면 연속으로 시작하고 오른쪽에서 7유형 중 고른다' },
-  { id: 'gap',       label: '간극', key: 'G', title: '간극 (G) — 기대와 결과가 어긋나는 지점' },
   { id: 'flag',      label: '도착', key: 'F', title: '도착 (F) — 레벨 끝에서 도달할 감정 지점' },
 ];
 

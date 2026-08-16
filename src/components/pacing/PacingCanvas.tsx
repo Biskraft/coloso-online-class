@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 import type * as React from 'react';
-import type { PacingDoc, PacingMarker, PacingNodeKind, PacingSegment } from '../../types';
+import type { PacingDoc, PacingMarker, PacingSegment } from '../../types';
 import { curvePath, segmentBounds, globalX, monotoneCubic, sortedSamples } from './pacing-utils';
 import { usePacing } from '../../store/pacing';
 import { uid } from '../../utils/id';
@@ -23,24 +23,8 @@ export function segColor(doc: PacingDoc, segId: string): string {
   return SEG_COLORS[(i < 0 ? 0 : i) % SEG_COLORS.length];
 }
 
-/** 페이싱 캔버스 도구 — select(기본) / point(추가) / node·gap·flag(표기) */
-export type PacTool = 'select' | 'point' | 'node' | 'gap' | 'flag';
-
-/** 노드 7유형 메타 — 라벨과 계열. 사이드 패널·상태줄에서 공용 */
-export const NODE_META: Record<PacingNodeKind, { label: string; family: '확인' | '부정' | '선택' }> = {
-  continue: { label: '연속',      family: '확인' },
-  deviate:  { label: '편차',      family: '확인' },
-  redirect: { label: '방향 전환', family: '부정' },
-  reverse:  { label: '반전',      family: '부정' },
-  deadend:  { label: '막다른 길', family: '부정' },
-  diverge:  { label: '발산',      family: '선택' },
-  converge: { label: '수렴',      family: '선택' },
-};
-
-/** 계열별 색 — 확인은 차분, 부정은 벽돌, 선택은 청사진 */
-const NODE_COLOR: Record<'확인' | '부정' | '선택', string> = {
-  '확인': 'var(--ink-500)', '부정': 'var(--brick)', '선택': 'var(--blueprint)',
-};
+/** 페이싱 캔버스 도구 — select(기본) / point(추가) / flag(도착 표기) */
+export type PacTool = 'select' | 'point' | 'flag';
 
 /** SVG viewBox 고정 크기 + 축 여백 */
 export const VIEW = { W: 900, H: 460, pad: 44 };
@@ -105,7 +89,7 @@ const TENSION_TICKS = [0, 50, 100];
 /**
  * SVG 캔버스 골격 — 청사진 그리드, 긴장 눈금, 구간 경계·이름, 곡선, 포인트, 표기.
  * 포인트 생성(빈 곳 클릭, point 도구)·드래그·삭제(Alt+클릭/우클릭)는 Task 6에서 구현됨.
- * 표기(노드/간극/도착) 부착·드래그·삭제는 Task 8에서 구현됨.
+ * 표기(도착) 부착·드래그·삭제는 Task 8에서 구현됨.
  * 곡선 하단 구간 이름 클릭으로 `selSeg`가 갱신되어 사이드 구간 편집칸과 연결된다.
  */
 export function PacingCanvas({ doc, tool, selSeg, onSelectSeg, onStatus }: PacingCanvasProps) {
@@ -149,23 +133,12 @@ export function PacingCanvas({ doc, tool, selSeg, onSelectSeg, onStatus }: Pacin
       return;
     }
 
-    if (tool === 'node' || tool === 'gap' || tool === 'flag') {
-      const { x, y } = toLocal(e, svg);
+    if (tool === 'flag') {
+      const { x } = toLocal(e, svg);
       const at = Math.max(0, Math.min(1, xToProgress(x)));
       const tension = curveTensionAt(doc, at);
-
-      if (tool === 'node') {
-        const curveY = py(tension);
-        if (Math.abs(y - curveY) > MARKER_NEAR_PX) return; // 곡선 근처가 아니면 무시
-        // 기본값은 '연속' — 유형 변경은 사이드 패널에서
-        addMarker(doc.id, { id: uid('pc-m'), kind: 'node', node: 'continue', at, tension });
-        onStatus('노드 추가 — 연속 (유형은 오른쪽에서 변경)');
-        return;
-      }
-
-      const kind: PacingMarker['kind'] = tool === 'gap' ? 'gap' : 'flag';
-      addMarker(doc.id, { id: uid('pc-m'), kind, at, tension });
-      onStatus(kind === 'gap' ? '간극 표기 추가' : '도착 표기 추가');
+      addMarker(doc.id, { id: uid('pc-m'), kind: 'flag', at, tension });
+      onStatus('도착 표기 추가');
     }
   };
 
@@ -239,109 +212,27 @@ export function PacingCanvas({ doc, tool, selSeg, onSelectSeg, onStatus }: Pacin
     onStatus('표기 삭제');
   };
 
-  /** 노드 7유형 글리프 — 곡선 위쪽에 그린다. 모두 직접 그린 선/도형(이모지 금지) */
-  const renderNodeGlyph = (nk: PacingNodeKind, cx: number, cy: number) => {
-    const col = NODE_COLOR[NODE_META[nk].family];
-    const y = cy - 20;                    // 글리프 기준선
-    const P = { fill: 'none', stroke: col, strokeWidth: 2.4, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-    switch (nk) {
-      case 'continue':  // → 직진
-        return <g><line x1={cx - 10} y1={y} x2={cx + 8} y2={y} {...P} /><polyline points={`${cx + 3},${y - 5} ${cx + 9},${y} ${cx + 3},${y + 5}`} {...P} /></g>;
-      case 'deviate':   // 살짝 굽어 나갔다 제자리로 — 직진에서 벗어난 한 번의 흔들림
-        return (
-          <g>
-            <path d={`M ${cx - 12} ${y + 3} q 6 -12 11 0`} {...P} />
-            <line x1={cx - 1} y1={y + 3} x2={cx + 7} y2={y + 3} {...P} />
-            <polyline points={`${cx + 3},${y - 1} ${cx + 8},${y + 3} ${cx + 3},${y + 7}`} {...P} strokeWidth={2} />
-          </g>
-        );
-      case 'redirect':  // ⤷ 전진 정지 후 옆걸음
-        return <g><polyline points={`${cx - 9},${y - 7} ${cx - 9},${y + 4} ${cx + 7},${y + 4}`} {...P} /><polyline points={`${cx + 2},${y - 1} ${cx + 8},${y + 4} ${cx + 2},${y + 9}`} {...P} /></g>;
-      case 'reverse':   // ↩ 목표에서 멀어짐
-        return <g><path d={`M ${cx + 10} ${y + 5} q 0 -11 -11 -11 h -6`} {...P} /><polyline points={`${cx - 2},${y - 11} ${cx - 8},${y - 6} ${cx - 2},${y - 1}`} {...P} /></g>;
-      case 'deadend':   // ⊣ 막힘
-        return <g><line x1={cx - 11} y1={y} x2={cx + 5} y2={y} {...P} /><line x1={cx + 6} y1={y - 8} x2={cx + 6} y2={y + 8} {...P} strokeWidth={3.2} /></g>;
-      case 'diverge':   // 하나에서 둘로 — 위 두 끝에 화살촉
-        return (
-          <g>
-            <line x1={cx} y1={y + 9} x2={cx} y2={y} {...P} />
-            <line x1={cx} y1={y} x2={cx - 10} y2={y - 10} {...P} />
-            <line x1={cx} y1={y} x2={cx + 10} y2={y - 10} {...P} />
-            <polyline points={`${cx - 10},${y - 4} ${cx - 11},${y - 11} ${cx - 4},${y - 10}`} {...P} strokeWidth={2} />
-            <polyline points={`${cx + 10},${y - 4} ${cx + 11},${y - 11} ${cx + 4},${y - 10}`} {...P} strokeWidth={2} />
-          </g>
-        );
-      case 'converge':  // 둘에서 하나로 — 아래 줄기 끝에 화살촉
-        return (
-          <g>
-            <line x1={cx - 10} y1={y - 10} x2={cx} y2={y} {...P} />
-            <line x1={cx + 10} y1={y - 10} x2={cx} y2={y} {...P} />
-            <line x1={cx} y1={y} x2={cx} y2={y + 9} {...P} />
-            <polyline points={`${cx - 5},${y + 4} ${cx},${y + 10} ${cx + 5},${y + 4}`} {...P} strokeWidth={2} />
-          </g>
-        );
-      default:
-        return null;
-    }
-  };
-
   /** 표기 아이콘(SVG) — 컬러 이모지 대신 직접 그린 도형만 사용 */
-  const renderMarkerIcon = (m: PacingMarker, cx: number, cy: number) => {
-    const GAP = 6; // 곡선과 아이콘 사이 여백
-    switch (m.kind) {
-      case 'node':
-        return renderNodeGlyph(m.node ?? 'continue', cx, cy);
-      case 'gap': {
-        // 간극 — 옐로우 지그재그 폴리라인(이모지 금지)
-        const topY = cy - GAP - 14;
-        const botY = cy - GAP;
-        const midY1 = topY + (botY - topY) * 0.33;
-        const midY2 = topY + (botY - topY) * 0.66;
-        return (
-          <polyline
-            points={`${cx - 4},${topY} ${cx + 4},${midY1} ${cx - 4},${midY2} ${cx + 4},${botY}`}
-            fill="none"
-            stroke="var(--ochre)"
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        );
-      }
-      case 'flag': {
-        // 도착 — 흰(paper) 깃대 + 옐로우(ochre) 삼각 페넌트
-        const poleTop = cy - GAP - 26;
-        return (
-          <g>
-            <line x1={cx} y1={cy} x2={cx} y2={poleTop} stroke="var(--ink-700)" strokeWidth={3.5} strokeLinecap="round" />
-            <line x1={cx} y1={cy} x2={cx} y2={poleTop} stroke="var(--paper-50)" strokeWidth={1.5} strokeLinecap="round" />
-            <polygon
-              points={`${cx},${poleTop} ${cx + 13},${poleTop + 5} ${cx},${poleTop + 10}`}
-              fill="var(--ochre)"
-              stroke="var(--ochre-deep)"
-              strokeWidth={1}
-            />
-          </g>
-        );
-      }
-      default:
-        return null;
-    }
+  const renderMarkerIcon = (_m: PacingMarker, cx: number, cy: number) => {
+    // 도착 — 흰(paper) 깃대 + 옐로우(ochre) 삼각 페넌트
+    const poleTop = cy - 6 - 26;
+    return (
+      <g>
+        <line x1={cx} y1={cy} x2={cx} y2={poleTop} stroke="var(--ink-700)" strokeWidth={3.5} strokeLinecap="round" />
+        <line x1={cx} y1={cy} x2={cx} y2={poleTop} stroke="var(--paper-50)" strokeWidth={1.5} strokeLinecap="round" />
+        <polygon
+          points={`${cx},${poleTop} ${cx + 13},${poleTop + 5} ${cx},${poleTop + 10}`}
+          fill="var(--ochre)"
+          stroke="var(--ochre-deep)"
+          strokeWidth={1}
+        />
+      </g>
+    );
   };
 
   /** 표기별 히트존(넉넉한 원) 중심 — 아이콘이 곡선 위/아래로 치우친 만큼 따라 이동 */
-  const markerHitCenter = (kind: PacingMarker['kind'], cx: number, cy: number) => {
-    switch (kind) {
-      case 'node':
-        return { x: cx, y: cy - 18, r: 22 };
-      case 'gap':
-        return { x: cx, y: cy - 13, r: 20 };
-      case 'flag':
-        return { x: cx + 3, y: cy - 16, r: 24 };
-      default:
-        return { x: cx, y: cy, r: 20 };
-    }
-  };
+  const markerHitCenter = (_kind: PacingMarker['kind'], cx: number, cy: number) =>
+    ({ x: cx + 3, y: cy - 16, r: 24 });
 
   return (
     <div className="pac-canvas">
@@ -437,7 +328,7 @@ export function PacingCanvas({ doc, tool, selSeg, onSelectSeg, onStatus }: Pacin
           return (
             <g
               key={m.id}
-              className={`pac-marker pac-marker--${m.kind}${m.kind === 'node' ? ' pac-node--' + (m.node ?? 'continue') : ''}`}
+              className={`pac-marker pac-marker--${m.kind}`}
               onPointerDown={handleMarkerPointerDown(m.id)}
               onContextMenu={handleMarkerContextMenu(m.id)}
               style={{ cursor: 'grab', touchAction: 'none' }}
@@ -447,7 +338,7 @@ export function PacingCanvas({ doc, tool, selSeg, onSelectSeg, onStatus }: Pacin
                 cx={cx}
                 cy={cy}
                 r={3}
-                fill={m.kind === 'node' ? NODE_COLOR[NODE_META[m.node ?? 'continue'].family] : 'var(--ochre)'}
+                fill="var(--ochre)"
                 stroke="var(--paper-50)"
                 strokeWidth={1}
               />
