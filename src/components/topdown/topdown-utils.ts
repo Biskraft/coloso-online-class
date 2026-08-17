@@ -425,7 +425,7 @@ export function hitTdImage(x: number, y: number, images: TdImage[]): string | nu
 
 /* ─── 마커 ─── */
 
-export const MARKER_R = 0.75;   // 마커 반지름 (셀) — 지름 1.5셀 실척 고정
+export const MARKER_R = 1.5;    // 마커 반지름 (셀) — 지름 3셀 실척 고정 (가독성 위해 2배 확대)
 
 export const MARKER_DEFS: Record<MarkerKind, { glyph: string; label: string; color: keyof TdColors }> = {
   start:    { glyph: '▶', label: '시작',     color: 'moss' },
@@ -441,7 +441,7 @@ export const MARKER_DEFS: Record<MarkerKind, { glyph: string; label: string; col
 export function hitMarker(x: number, y: number, markers: MarkerObj[]): string | null {
   for (let i = markers.length - 1; i >= 0; i--) {
     const m = markers[i]!;
-    if (Math.hypot(x - m.x, y - m.y) <= MARKER_R + 0.15) return m.id;
+    if (Math.hypot(x - m.x, y - m.y) <= MARKER_R + 0.3) return m.id;
   }
   return null;
 }
@@ -714,7 +714,7 @@ export function drawMarker(ctx: CanvasRenderingContext2D, m: MarkerObj, o: Rende
   ctx.fillStyle = color;
   ctx.fill();
   ctx.strokeStyle = c.wall;
-  ctx.lineWidth = Math.max(0.06 * CELL, 0.8 / o.zoomK);
+  ctx.lineWidth = Math.max(0.12 * CELL, 0.8 / o.zoomK);
   ctx.stroke();
   ctx.fillStyle = c.floor;
   ctx.font = `${r * 1.15}px Pretendard, sans-serif`;
@@ -723,9 +723,9 @@ export function drawMarker(ctx: CanvasRenderingContext2D, m: MarkerObj, o: Rende
   ctx.fillText(def.glyph, 0, r * 0.06);
   if (m.label) {
     ctx.fillStyle = c.wall;
-    ctx.font = `600 ${0.9 * CELL}px Pretendard, sans-serif`;
+    ctx.font = `600 ${1.8 * CELL}px Pretendard, sans-serif`;
     ctx.textAlign = 'left';
-    ctx.fillText(m.label, r + 0.3 * CELL, 0);
+    ctx.fillText(m.label, r + 0.6 * CELL, 0);
   }
   ctx.restore();
 }

@@ -1524,7 +1524,7 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
         const t = tRef.current;
         setTextEdit({
           wx: mk.x, wy: mk.y,
-          sx: t.applyX((mk.x + MARKER_R + 0.3) * CELL),
+          sx: t.applyX((mk.x + MARKER_R + 0.6) * CELL),
           sy: t.applyY(mk.y * CELL),
           value: mk.label ?? '',
           markerId: mk.id,
