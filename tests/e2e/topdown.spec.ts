@@ -131,6 +131,52 @@ test('PNG 내보내기 — 2048×2048로 나온다', async ({ page }) => {
   for (const n of probe.marks) expect(n).toBeGreaterThan(500);
 });
 
+test('PNG 내보내기 — 도면이 반시계 90°로 돌아간다', async ({ page }) => {
+  const { cx, cy } = await enterAndBox(page);
+
+  // 화면 위쪽(월드 y가 작은 쪽)에 시작 마커 하나 — 회전하면 왼쪽으로 가야 한다
+  await page.locator('.td-tool', { hasText: '마커' }).click();
+  await page.mouse.click(cx, cy - 150);
+  await page.waitForTimeout(700);
+
+  const td = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('bubble-atelier::workspace')!).projects[0].topdowns[0]);
+  const m = td.markers[0];
+  const [cols, rows] = td.grid;
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('.td-group .td-btn', { hasText: 'PNG' }).click(),
+  ]);
+  const buf = await readFile((await download.path())!);
+
+  // 시작 마커색(--moss #6B8E5A) 픽셀의 무게중심 = 마커의 출력 좌표
+  const c = await page.evaluate(async (data) => {
+    const img = new Image();
+    await new Promise((r) => { img.onload = r; img.src = 'data:image/png;base64,' + data; });
+    const cv = document.createElement('canvas');
+    cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+    const ctx = cv.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
+    const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+    let sx = 0, sy = 0, n = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      if (Math.abs(d[i]! - 107) < 14 && Math.abs(d[i + 1]! - 142) < 14 && Math.abs(d[i + 2]! - 90) < 14) {
+        const p = i / 4;
+        sx += p % cv.width; sy += Math.floor(p / cv.width); n++;
+      }
+    }
+    return { x: sx / n, y: sy / n, n };
+  }, buf.toString('base64'));
+
+  expect(c.n).toBeGreaterThan(100);
+  // -90° 매핑: 출력X = pad + y·cellPx, 출력Y = pad + (cols - x)·cellPx
+  const cellPx = 2048 / (Math.max(cols, rows) + 4);
+  const pad = cellPx * 2;
+  expect(Math.abs(c.x - (pad + m.y * cellPx))).toBeLessThan(6);
+  expect(Math.abs(c.y - (pad + (cols - m.x) * cellPx))).toBeLessThan(6);
+});
+
 test('빼기 모드(E) → subtract 도형 → 실행취소', async ({ page }) => {
   const { cx, cy } = await enterAndBox(page);
 

@@ -527,6 +527,9 @@ export interface RenderOpts {
   structHigh?: MultiPoly;
   structLow?: MultiPoly;
   zones?: ZoneObj[];
+  /** 주석 보정 회전 (라디안) — 도면 전체를 돌려 그릴 때 글자·배지만 세워둔다.
+   *  도형·문·계단은 도면과 함께 돌고, 마커 글리프/라벨과 손글씨 텍스트만 이 값으로 되돌린다 */
+  textRot?: number;
 }
 
 /* 해칭 패턴 캐시 — CELL·색이 같으면 재사용 */
@@ -712,6 +715,7 @@ export function drawMarker(ctx: CanvasRenderingContext2D, m: MarkerObj, o: Rende
   const r = MARKER_R * CELL;
   ctx.save();
   ctx.translate(m.x * CELL, m.y * CELL);
+  if (o.textRot) ctx.rotate(o.textRot);   // 배지는 도면이 돌아도 세워둔다
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
   ctx.fillStyle = color;
@@ -773,11 +777,13 @@ export function drawStair(ctx: CanvasRenderingContext2D, s: StairObj, o: RenderO
 export function drawText(ctx: CanvasRenderingContext2D, t: TextObj, o: RenderOpts) {
   const { CELL, colors: c } = o;
   ctx.save();
+  ctx.translate(t.x * CELL, t.y * CELL);
+  if (o.textRot) ctx.rotate(o.textRot);   // 손글씨는 도면이 돌아도 세워둔다
   ctx.fillStyle = c.wall;
   ctx.font = `${t.size * CELL}px Caveat, "Gowun Batang", cursive`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(t.text, t.x * CELL, t.y * CELL);
+  ctx.fillText(t.text, 0, 0);
   ctx.restore();
 }
 
@@ -804,6 +810,11 @@ export function drawDoor(ctx: CanvasRenderingContext2D, d: DoorObj, o: RenderOpt
 /** 내보내기 긴 변 (px) — 여백 포함. 정사각 작업 범위면 정확히 이 값의 정사각형이 나온다 */
 export const TD_EXPORT_MAX_PX = 2048;
 
+/** 내보내기 회전 (라디안) — 도면을 반시계 90°(-90°) 돌려 저장한다.
+ *  편집 화면의 '왼쪽'이 PNG에서 '아래'가 되도록 맞춘 값. 반대로 돌려야 하면 부호만 바꾼다.
+ *  가로·세로가 바뀌므로 출력 크기도 함께 뒤집힌다 (정사각 그리드면 그대로 정사각). */
+export const TD_EXPORT_ROT = -Math.PI / 2;
+
 export interface TdRenderOut {
   /** 배경(종이톤)을 칠하지 않는다 — PNG 알파 투명 */
   transparent?: boolean;
@@ -820,8 +831,10 @@ export function renderTopdownCanvas(doc: TopdownDoc, out: TdRenderOut = {}): HTM
   const pad2 = 4;                                   // 여백 = 좌우 각 2셀
   const cellPx = TD_EXPORT_MAX_PX / (Math.max(cols, rows) + pad2);
   const pad = cellPx * 2;
-  const W = Math.round(cols * cellPx + pad * 2);
-  const H = Math.round(rows * cellPx + pad * 2);
+  const cw = cols * cellPx, ch = rows * cellPx;   // 회전 전 도면 크기
+  // -90° 회전으로 가로·세로가 뒤바뀐다
+  const W = Math.round(ch + pad * 2);
+  const H = Math.round(cw + pad * 2);
   const cv = document.createElement('canvas');
   cv.width = W;
   cv.height = H;
@@ -834,7 +847,9 @@ export function renderTopdownCanvas(doc: TopdownDoc, out: TdRenderOut = {}): HTM
     ctx.fillRect(0, 0, W, H);
   }
   ctx.save();
-  ctx.translate(pad, pad);
+  // 도면 원점을 회전 후 여백 안쪽에 맞춘다 — 월드 (0,0)이 왼쪽 아래로 간다
+  ctx.translate(pad, pad + cw);
+  ctx.rotate(TD_EXPORT_ROT);
   const floorMerged = mergeGeo(doc.geo);
   const st = doc.struct ?? [];
   renderScrawl(ctx, floorMerged, {
@@ -847,6 +862,8 @@ export function renderTopdownCanvas(doc: TopdownDoc, out: TdRenderOut = {}): HTM
     structHigh: mergeGeo(st.filter((x) => !x.low)),
     structLow: mergeGeo(st.filter((x) => x.low)),
     zones: doc.zones,
+    // 도면은 돌아가도 주석은 읽히도록 되돌린다
+    textRot: -TD_EXPORT_ROT,
   });
   // 동선 — renderScrawl이 다루지 않는 레이어라 바깥에서 얹는다 (숨김이면 제외)
   if (doc.pathVisible !== false) {
