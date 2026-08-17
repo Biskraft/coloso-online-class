@@ -379,7 +379,7 @@ export function TopdownCanvas({ doc, tool, erase, rough, snap, corridorW, doorW,
       zones: doc.zones,
     });
 
-    // 동선 레이어 — renderScrawl은 바닥이 비면 조기 반환하므로 바깥에서 얹는다.
+    // 동선 레이어 — renderScrawl이 다루지 않는 레이어라 바깥에서 얹는다.
     // 선택된 획은 이동 미리보기 델타를 반영해 그린다
     {
       const [sdx, sdy] = moveDeltaRef.current;

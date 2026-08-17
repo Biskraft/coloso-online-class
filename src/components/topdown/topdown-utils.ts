@@ -569,15 +569,16 @@ export function renderScrawl(
   o: RenderOpts,
 ) {
   const { CELL, colors: c } = o;
-  if (merged.length === 0) return;
-  const floorPath = multiToPath(merged, CELL);
+  // 바닥이 비어도 조기 반환하지 않는다 — 구조·문·계단·마커·텍스트는
+  // 빈 종이 위에서도 배치·표시되어야 한다 (마커부터 찍고 방을 그리는 흐름 보존)
+  const floorPath = merged.length > 0 ? multiToPath(merged, CELL) : null;
   // 실척 벽 두께 (월드 고정) — 잉크 선만 화면 최소 두께 하한을 가진다.
   // 그림자·해칭 폭에는 하한을 섞지 않는다 (줌 아웃 시 비대해지는 원인)
   const wallWorld = o.wallM * CELL;   // 1셀 = 1m 고정
   const wallPx = Math.max(wallWorld, 0.9 / o.zoomK);
 
   // 1. 그림자 — 벽 바깥쪽으로 부드럽게 퍼지는 음영 (바닥 밖에만, 실척 고정)
-  if (o.shadow) {
+  if (floorPath && o.shadow) {
     ctx.save();
     // 바닥 바깥 클립: 큰 사각형 + 바닥 (evenodd)
     const outside = new Path2D();
@@ -592,7 +593,7 @@ export function renderScrawl(
   }
 
   // 2. 외곽 해칭 — 바닥 밖, 벽 주변 띠만 (해칭 패턴으로 경계를 두껍게 스트로크)
-  if (o.hatch) {
+  if (floorPath && o.hatch) {
     ctx.save();
     const outside = new Path2D();
     outside.rect(-1e5, -1e5, 2e5, 2e5);
@@ -608,37 +609,39 @@ export function renderScrawl(
     ctx.restore();
   }
 
-  // 3. 바닥 채움
-  ctx.fillStyle = c.floor;
-  ctx.fill(floorPath, 'evenodd');
+  if (floorPath) {
+    // 3. 바닥 채움
+    ctx.fillStyle = c.floor;
+    ctx.fill(floorPath, 'evenodd');
 
-  // 4. 바닥 내부 그리드 (클립) — 임계값 팝핑 대신 페이드 인/아웃
-  ctx.save();
-  ctx.clip(floorPath, 'evenodd');
-  const px = o.zoomK * CELL;
-  const W = o.cols * CELL, H = o.rows * CELL;
-  const lines = (step: number, style: string, width: number) => {
-    ctx.strokeStyle = style;
-    ctx.lineWidth = width / o.zoomK;
-    ctx.beginPath();
-    for (let x = 0; x <= o.cols; x += step) { ctx.moveTo(x * CELL, 0); ctx.lineTo(x * CELL, H); }
-    for (let y = 0; y <= o.rows; y += step) { ctx.moveTo(0, y * CELL); ctx.lineTo(W, y * CELL); }
-    ctx.stroke();
-  };
-  const a1 = gridFade(px, 3.5, 7);
-  if (a1 > 0) { ctx.globalAlpha = a1; lines(1, c.gridSoft, 1); }
-  // 10m 기준선 — 바닥 밖 전역 그리드와 같은 위계. 화면 간격(px * 10) 기준이라
-  // 1m 격자가 사라진 뒤에도 남아 축척 감각을 유지한다.
-  const aM = gridFade(px * GRID_MAJOR, 6, 12);
-  if (aM > 0) { ctx.globalAlpha = aM; lines(GRID_MAJOR, c.gridMajor, 1); }
-  ctx.globalAlpha = 1;
-  ctx.restore();
+    // 4. 바닥 내부 그리드 (클립) — 임계값 팝핑 대신 페이드 인/아웃
+    ctx.save();
+    ctx.clip(floorPath, 'evenodd');
+    const px = o.zoomK * CELL;
+    const W = o.cols * CELL, H = o.rows * CELL;
+    const lines = (step: number, style: string, width: number) => {
+      ctx.strokeStyle = style;
+      ctx.lineWidth = width / o.zoomK;
+      ctx.beginPath();
+      for (let x = 0; x <= o.cols; x += step) { ctx.moveTo(x * CELL, 0); ctx.lineTo(x * CELL, H); }
+      for (let y = 0; y <= o.rows; y += step) { ctx.moveTo(0, y * CELL); ctx.lineTo(W, y * CELL); }
+      ctx.stroke();
+    };
+    const a1 = gridFade(px, 3.5, 7);
+    if (a1 > 0) { ctx.globalAlpha = a1; lines(1, c.gridSoft, 1); }
+    // 10m 기준선 — 바닥 밖 전역 그리드와 같은 위계. 화면 간격(px * 10) 기준이라
+    // 1m 격자가 사라진 뒤에도 남아 축척 감각을 유지한다.
+    const aM = gridFade(px * GRID_MAJOR, 6, 12);
+    if (aM > 0) { ctx.globalAlpha = aM; lines(GRID_MAJOR, c.gridMajor, 1); }
+    ctx.globalAlpha = 1;
+    ctx.restore();
 
-  // 5. 벽 — 실척 잉크 스트로크
-  ctx.strokeStyle = c.wall;
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = wallPx;
-  ctx.stroke(floorPath);
+    // 5. 벽 — 실척 잉크 스트로크
+    ctx.strokeStyle = c.wall;
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = wallPx;
+    ctx.stroke(floorPath);
+  }
 
   // 5.5 엄폐(낮은 구조) — 한 단계 어두운 채움 + 가는 잉크 테두리
   if (o.structLow?.length) {
@@ -845,7 +848,7 @@ export function renderTopdownCanvas(doc: TopdownDoc, out: TdRenderOut = {}): HTM
     structLow: mergeGeo(st.filter((x) => x.low)),
     zones: doc.zones,
   });
-  // 동선 — renderScrawl은 바닥이 비면 조기 반환하므로 바깥에서 얹는다 (숨김이면 제외)
+  // 동선 — renderScrawl이 다루지 않는 레이어라 바깥에서 얹는다 (숨김이면 제외)
   if (doc.pathVisible !== false) {
     drawStrokes(ctx, doc.strokes ?? [], { CELL: cellPx, zoomK: 1, colors: c });
   }

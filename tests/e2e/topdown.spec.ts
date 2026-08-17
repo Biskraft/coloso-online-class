@@ -387,6 +387,45 @@ test('마커 도구 — 3종 배치 → 저장 → 마퀴 일괄 삭제', async 
   expect(ws.projects[0].topdowns[0].markers.length).toBe(0);
 });
 
+test('마커는 바닥·구조가 없어도 배치되고 화면에 그려진다', async ({ page }) => {
+  // 바닥을 그리지 않은 빈 제도판에서 시작
+  await page.locator('[data-testid="enter-topdown"]').click();
+  await expect(page.locator('[data-testid="topdown-shell"]')).toBeVisible();
+  const canvas = page.locator('[data-testid="topdown-canvas"]');
+  const box = (await canvas.boundingBox())!;
+  const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+
+  await page.mouse.move(cx, cy);
+  for (let i = 0; i < 4; i++) await page.mouse.wheel(0, -240);
+  await page.waitForTimeout(200);
+
+  await page.locator('.td-tool', { hasText: '마커' }).click();
+  await page.mouse.click(cx, cy);
+  await page.waitForTimeout(800);
+
+  const td = (await readWorkspace(page)).projects[0].topdowns[0];
+  expect(td.geo.length).toBe(0);
+  expect((td.struct ?? []).length).toBe(0);
+  expect(td.markers.length).toBe(1);
+
+  // 저장만이 아니라 실제로 그려지는지 — 클릭 주변에서 시작 마커색(--moss #6B8E5A) 픽셀을 찾는다
+  const mossPixels = await page.evaluate(([px, py]) => {
+    const cv = document.querySelector('[data-testid="topdown-canvas"]') as HTMLCanvasElement;
+    const r = cv.getBoundingClientRect();
+    const dpr = cv.width / r.width;
+    const half = Math.round(60 * dpr);
+    const x0 = Math.max(0, Math.round((px - r.left) * dpr) - half);
+    const y0 = Math.max(0, Math.round((py - r.top) * dpr) - half);
+    const d = cv.getContext('2d')!.getImageData(x0, y0, half * 2, half * 2).data;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      if (Math.abs(d[i]! - 107) < 14 && Math.abs(d[i + 1]! - 142) < 14 && Math.abs(d[i + 2]! - 90) < 14) n++;
+    }
+    return n;
+  }, [cx, cy]);
+  expect(mossPixels).toBeGreaterThan(200);
+});
+
 function bboxOf(poly: number[][][]) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const ring of poly) {
